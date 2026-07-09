@@ -8,6 +8,7 @@ import ListaCompras from '@/pages/compras/ListaCompras';
 import FollowupFornecedor from '@/pages/followup/FollowupFornecedor';
 import CadastroPI from '@/pages/pi/CadastroPI';
 import ControleImportacao from '@/pages/comex/ControleImportacao';
+import AcompanhamentoImportacoes from '@/pages/comex/AcompanhamentoImportacoes';
 import MultiplosEmbarques from '@/pages/comex/MultiplosEmbarques';
 import ChecksRecebimento from '@/pages/comex/ChecksRecebimento';
 import CadastroPDV from '@/pages/pdv/CadastroPDV';
@@ -20,7 +21,9 @@ import AdminLogs from '@/pages/admin/Logs';
 
 function Protegida({ tela, children }: { tela: string | null; children: React.ReactNode }) {
   const { session, usuario, carregando, podeVer } = useAuth();
-  if (carregando) {
+  // sessão existente com perfil ainda carregando não pode redirecionar,
+  // senão entra em loop com o redirect inverso da tela de login
+  if (carregando || (session && !usuario)) {
     return (
       <div className="flex h-screen items-center justify-center">
         <div className="w-72 space-y-3">
@@ -31,7 +34,7 @@ function Protegida({ tela, children }: { tela: string | null; children: React.Re
       </div>
     );
   }
-  if (!session || !usuario) return <Navigate to="/login" replace />;
+  if (!session) return <Navigate to="/login" replace />;
   if (tela && !podeVer(tela)) {
     return (
       <div className="flex h-64 flex-col items-center justify-center gap-2 text-muted-foreground">
@@ -59,6 +62,7 @@ export default function App() {
         <Route path="/followup" element={<Protegida tela="followup_fornecedor"><FollowupFornecedor /></Protegida>} />
         <Route path="/cadastro-pi" element={<Protegida tela="cadastro_pi"><CadastroPI /></Protegida>} />
         <Route path="/controle-importacao" element={<Protegida tela="controle_importacao"><ControleImportacao /></Protegida>} />
+        <Route path="/acompanhamento-importacoes" element={<Protegida tela="acompanhamento_importacoes"><AcompanhamentoImportacoes /></Protegida>} />
         <Route path="/multiplos-embarques" element={<Protegida tela="multiplos_embarques"><MultiplosEmbarques /></Protegida>} />
         <Route path="/checks-recebimento" element={<Protegida tela="checks_recebimento"><ChecksRecebimento /></Protegida>} />
         <Route path="/cadastro-pdv" element={<Protegida tela="cadastro_pdv"><CadastroPDV /></Protegida>} />

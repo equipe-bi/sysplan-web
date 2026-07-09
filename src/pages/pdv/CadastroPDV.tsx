@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link2, PlusCircle } from 'lucide-react';
 import { toast } from 'sonner';
-import { supabase } from '@/lib/supabase';
+import { supabase, fetchAll } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 import { DataTable, type Coluna } from '@/components/DataTable';
 import { Button } from '@/components/ui/button';
@@ -23,14 +23,13 @@ export default function CadastroPDV() {
     queryKey: ['pdv_lista'],
     queryFn: async () => {
       const [lojas, base, depara] = await Promise.all([
-        supabase.from('pdv_cadastro_loja').select('*').limit(20000),
-        supabase.from('pdv_base_cadastro').select('*').limit(20000),
-        supabase.from('pdv_depara').select('*').limit(20000),
+        fetchAll<any>((i, f) => supabase.from('pdv_cadastro_loja').select('*').order('cd_sap').range(i, f)),
+        fetchAll<any>((i, f) => supabase.from('pdv_base_cadastro').select('*').order('cd_sap').range(i, f)),
+        fetchAll<any>((i, f) => supabase.from('pdv_depara').select('*').order('cd_sap').range(i, f)),
       ]);
-      if (lojas.error) throw lojas.error;
-      const basePorSap = new Map((base.data ?? []).map((b: any) => [b.cd_sap, b]));
-      const deparaPorSap = new Map((depara.data ?? []).map((d: any) => [d.cd_sap, d.id_pdv]));
-      return (lojas.data ?? []).map((l: any) => ({
+      const basePorSap = new Map(base.map((b: any) => [b.cd_sap, b]));
+      const deparaPorSap = new Map(depara.map((d: any) => [d.cd_sap, d.id_pdv]));
+      return lojas.map((l: any) => ({
         ...l,
         ...basePorSap.get(l.cd_sap),
         cd_sap: l.cd_sap,

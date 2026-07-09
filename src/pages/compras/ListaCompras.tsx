@@ -1,19 +1,16 @@
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-  CalendarClock,
   Download,
-  FileDown,
   FileSpreadsheet,
   FileText,
-  FileUp,
   Filter,
   Plus,
   RefreshCw,
   Trash2,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { supabase } from '@/lib/supabase';
+import { supabase, fetchAll } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 import { useCombos, useCompradores } from '@/services/combos';
 import { DataTable, type Coluna } from '@/components/DataTable';
@@ -27,7 +24,7 @@ import { anoMes, formatNumber, formatPercent } from '@/lib/utils';
 import type { CompraLista, ConfigColuna } from '@/types';
 import { campoParaColuna, renderizador } from './colunas';
 import { EdicaoCompra } from './EdicaoCompra';
-import { EdicaoMassa } from './EdicaoMassa';
+import { EdicaoMassaCampo } from './EdicaoMassaCampo';
 import { FotoProduto } from './FotoProduto';
 
 interface FiltroAvancado {
@@ -49,10 +46,8 @@ export default function ListaCompras() {
   const [anoMesInicio, setAnoMesInicio] = useState(String(anoMes(-10)));
   const [filtrosAvancados, setFiltrosAvancados] = useState<FiltroAvancado[]>([]);
   const [dialogFiltros, setDialogFiltros] = useState(false);
-  const [edicaoMassa, setEdicaoMassa] = useState(false);
   const [cdEdicao, setCdEdicao] = useState<number | null>(null);
   const [selecionadas, setSelecionadas] = useState<Set<number>>(new Set());
-  const [dataAjuste, setDataAjuste] = useState('');
   const [fotoRef, setFotoRef] = useState<string | null>(null);
 
   const { data: configCols } = useQuery({
@@ -70,15 +65,14 @@ export default function ListaCompras() {
 
   const { data: compras, isLoading, refetch } = useQuery({
     queryKey: ['compras_lista', comprador, compradorGrupo, anoMesInicio],
-    queryFn: async () => {
-      let q = supabase.from('vw_controle_compras_lista').select('*').limit(20000);
-      if (anoMesInicio) q = q.gte('nr_anomes', Number(anoMesInicio));
-      if (comprador) q = q.eq('dc_comprador', comprador);
-      if (compradorGrupo) q = q.eq('dc_comprador_grupo', compradorGrupo);
-      const { data, error } = await q.order('dt_recebimento', { ascending: true });
-      if (error) throw error;
-      return data as CompraLista[];
-    },
+    queryFn: async () =>
+      fetchAll<CompraLista>((inicio, fim) => {
+        let q = supabase.from('vw_controle_compras_lista').select('*');
+        if (anoMesInicio) q = q.gte('nr_anomes', Number(anoMesInicio));
+        if (comprador) q = q.eq('dc_comprador', comprador);
+        if (compradorGrupo) q = q.eq('dc_comprador_grupo', compradorGrupo);
+        return q.order('dt_recebimento', { ascending: true }).order('cd_compra').range(inicio, fim);
+      }),
   });
 
   const { data: compradores } = useCompradores();
@@ -162,27 +156,6 @@ export default function ListaCompras() {
     onError: (e) => toast.error(String(e)),
   });
 
-  const ajustarRecebimento = useMutation({
-    mutationFn: async () => {
-      if (!dataAjuste) throw new Error('Informar data de recebimento.');
-      for (const cd of selecionadas) {
-        const { error } = await supabase
-          .from('controle_compras')
-          .update({ dt_recebimento: dataAjuste })
-          .eq('cd_compra', cd);
-        if (error) throw error;
-      }
-      registraLog('EdicaoCompra - Alteracao Massa Recebimento', 0, '', dataAjuste, 'dt_recebimento');
-    },
-    onSuccess: () => {
-      toast.success(`Recebimento ajustado em ${selecionadas.size} linha(s).`);
-      setSelecionadas(new Set());
-      setDataAjuste('');
-      qc.invalidateQueries({ queryKey: ['compras_lista'] });
-    },
-    onError: (e) => toast.error(String(e)),
-  });
-
   const colunasExport: ColunaExport[] = colunas.map((c) => ({ key: c.key, titulo: c.titulo }));
   const dadosExport = filtrados.map((r: any) => {
     const o: Record<string, any> = {};
@@ -241,11 +214,6 @@ export default function ListaCompras() {
           <Button variant="outline" onClick={() => { exportarPdf(colunasExport, dadosExport, 'SysPlan_ListaCompras', 'SysPlan - Lista de Compras'); registraLog('ListaCompras - Exportacao PDF'); }}>
             <FileText /> PDF
           </Button>
-          {editavel && (
-            <Button variant="secondary" onClick={() => setEdicaoMassa(true)}>
-              <FileUp /> Edição em Massa
-            </Button>
-          )}
         </div>
       </div>
 
@@ -275,17 +243,13 @@ export default function ListaCompras() {
             Limpar filtros
           </Button>
           {selecionadas.size >= 2 && editavel && (
-            <div className="ml-auto flex items-end gap-2 rounded-md border border-primary/40 bg-primary/5 p-2">
-              <div>
-                <Label className="flex items-center gap-1">
-                  <CalendarClock className="h-3 w-3" /> Ajustar recebimento ({selecionadas.size} linhas)
-                </Label>
-                <Input type="date" value={dataAjuste} onChange={(e) => setDataAjuste(e.target.value)} className="w-40" />
-              </div>
-              <Button size="sm" loading={ajustarRecebimento.isPending} onClick={() => ajustarRecebimento.mutate()}>
-                Aplicar
-              </Button>
-            </div>
+            <EdicaoMassaCampo
+              selecionadas={selecionadas}
+              onAplicado={() => {
+                setSelecionadas(new Set());
+                qc.invalidateQueries({ queryKey: ['compras_lista'] });
+              }}
+            />
           )}
         </CardContent>
       </Card>
@@ -416,15 +380,6 @@ export default function ListaCompras() {
         />
       )}
 
-      {edicaoMassa && (
-        <EdicaoMassa
-          dados={filtrados}
-          onFechar={(mudou) => {
-            setEdicaoMassa(false);
-            if (mudou) qc.invalidateQueries({ queryKey: ['compras_lista'] });
-          }}
-        />
-      )}
     </div>
   );
 }

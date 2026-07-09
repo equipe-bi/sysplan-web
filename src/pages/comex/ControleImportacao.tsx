@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { FileDown, FileUp, RefreshCw } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { FileDown, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
-import { supabase } from '@/lib/supabase';
+import { supabase, fetchAll } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 import { DataTable, type Coluna } from '@/components/DataTable';
 import { Button } from '@/components/ui/button';
@@ -10,14 +10,11 @@ import { Input, Label, Select } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/misc';
 import { exportarExcel } from '@/lib/exportar';
-import { lerPlanilha } from '@/lib/exportar';
 import { anoMes, formatDate, formatNumber, cn } from '@/lib/utils';
 import { useCombos } from '@/services/combos';
 
 export default function ControleImportacao() {
-  const { usuario, podeEditar, registraLog } = useAuth();
-  const editavel = podeEditar('controle_importacao');
-  const qc = useQueryClient();
+  const { registraLog } = useAuth();
   const { opcoes } = useCombos();
 
   const [canal, setCanal] = useState('');
@@ -30,11 +27,10 @@ export default function ControleImportacao() {
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['analise_fup'],
-    queryFn: async () => {
-      const { data, error } = await supabase.from('vw_analise_fup_comex').select('*').limit(20000);
-      if (error) throw error;
-      return data as any[];
-    },
+    queryFn: async () =>
+      fetchAll<any>((inicio, fim) =>
+        supabase.from('vw_analise_fup_comex').select('*').order('cd_compra').range(inicio, fim),
+      ),
   });
 
   const filtrados = useMemo(() => {
@@ -67,11 +63,10 @@ export default function ControleImportacao() {
 
   const { data: listaEntrega } = useQuery({
     queryKey: ['lista_entrega'],
-    queryFn: async () => {
-      const { data, error } = await supabase.from('vw_lista_entrega_origem').select('*').limit(20000);
-      if (error) throw error;
-      return data as any[];
-    },
+    queryFn: async () =>
+      fetchAll<any>((inicio, fim) =>
+        supabase.from('vw_lista_entrega_origem').select('*').order('cd_pedido_sap').range(inicio, fim),
+      ),
   });
 
   const mesesDelivery = useMemo(
@@ -119,57 +114,6 @@ export default function ControleImportacao() {
     registraLog('Comex - Relatorio - Exportacao');
   };
 
-  /** Sincronizar despachante: importa planilha Hoffen e recarrega ext_fup_despachante */
-  const sincronizarDespachante = async (file: File) => {
-    const linhas = await lerPlanilha(file);
-    const dt = (v: any) => (v instanceof Date ? v.toISOString().slice(0, 10) : v ? String(v).slice(0, 10) : null);
-    const validas = linhas.filter(
-      (l) =>
-        (l['Pedido SAP'] ?? '') !== '' &&
-        (l['Material Pai'] ?? '') !== '' && String(l['Material Pai']) !== '0' &&
-        !String(l['Cod Hoffen'] ?? '').toUpperCase().includes('CANCEL'),
-    );
-    if (validas.length === 0) {
-      toast.error('Nenhuma linha válida na planilha (verifique colunas "Pedido SAP", "Material Pai", "Cod Hoffen").');
-      return;
-    }
-    const { error: eDel } = await supabase.from('ext_fup_despachante').delete().gte('id', 0);
-    if (eDel) {
-      toast.error(eDel.message);
-      return;
-    }
-    const registros = validas.map((l) => ({
-      cd_pedido_sap: String(l['Pedido SAP']),
-      cd_material_pai: String(l['Material Pai']),
-      cd_embarque: String(l['Cod Hoffen'] ?? ''),
-      dt_entrega_origem: dt(l['Entrega Origem Real']),
-      dt_previsao_embarque: dt(l['ETD']),
-      dt_embarque_real: dt(l['ATD']),
-      dt_previsao_atraque: dt(l['ETA']),
-      dt_atraque_real: dt(l['ATA']),
-      hbl: l['HBL'] ? String(l['HBL']) : null,
-      dc_status_comex: l['Status Calculado'] ? String(l['Status Calculado']) : null,
-      dc_observacao: l['Observações'] ? String(l['Observações']) : null,
-      origem: 'Hoffen',
-    }));
-    for (let i = 0; i < registros.length; i += 1000) {
-      const { error } = await supabase.from('ext_fup_despachante').insert(registros.slice(i, i + 1000));
-      if (error) {
-        toast.error(error.message);
-        return;
-      }
-    }
-    registraLog('Comex - Sincronizacao Despachante', 0, '', `${registros.length} linhas`);
-    await supabase.from('importacoes').insert({
-      usuario_id: usuario?.id, tipo: 'fup_despachante', nome_arquivo: file.name,
-      total_linhas: linhas.length, linhas_validas: registros.length,
-      linhas_erro: linhas.length - validas.length, status: 'aplicado',
-      aplicado_em: new Date().toISOString(),
-    });
-    toast.success(`Base do despachante sincronizada (${registros.length} linhas).`);
-    qc.invalidateQueries();
-  };
-
   const colunasDetalhe: Coluna<any>[] = [
     { key: 'status_calc', titulo: 'Status' },
     { key: 'dc_canal', titulo: 'Canal' },
@@ -194,17 +138,6 @@ export default function ControleImportacao() {
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" onClick={() => refetch()}><RefreshCw /> Atualizar</Button>
           <Button variant="outline" onClick={exportarRelatorio}><FileDown /> Relatório</Button>
-          {editavel && (
-            <>
-              <Button variant="secondary" onClick={() => document.getElementById('imp-hoffen')?.click()}>
-                <FileUp /> Sincronizar Despachante
-              </Button>
-              <input
-                id="imp-hoffen" type="file" accept=".xlsx,.xlsb,.xls,.csv" className="hidden"
-                onChange={(e) => { const f = e.target.files?.[0]; if (f) sincronizarDespachante(f); e.target.value = ''; }}
-              />
-            </>
-          )}
         </div>
       </div>
 

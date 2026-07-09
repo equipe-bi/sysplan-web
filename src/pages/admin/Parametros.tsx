@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Pencil, Play, Plus, Save, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { supabase } from '@/lib/supabase';
+import { supabase, fetchAll } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 import { DataTable, type Coluna } from '@/components/DataTable';
 import { Button } from '@/components/ui/button';
@@ -137,11 +137,10 @@ function CrudTabela({ def }: { def: TabelaDef }) {
 
   const { data, isLoading } = useQuery({
     queryKey: ['prm', def.tabela],
-    queryFn: async () => {
-      const { data, error } = await supabase.from(def.tabela).select('*').limit(10000).order(def.pk[0]);
-      if (error) throw error;
-      return data as Record<string, any>[];
-    },
+    queryFn: async () =>
+      fetchAll<Record<string, any>>((inicio, fim) =>
+        supabase.from(def.tabela).select('*').order(def.pk[0]).range(inicio, fim),
+      ),
   });
 
   const salvar = useMutation({

@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as XLSX from 'xlsx';
 import { CheckCheck, FileDown, FileUp, PlayCircle, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
-import { supabase } from '@/lib/supabase';
+import { supabase, fetchAll } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 import { useCombos, useCompradores } from '@/services/combos';
 import { DataTable, type Coluna } from '@/components/DataTable';
@@ -56,26 +56,27 @@ export default function FollowupFornecedor() {
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['followups', status],
     queryFn: async () => {
-      let ids: number[] | null = null;
+      const seleciona = (inicio: number, fim: number) => {
+        let q = supabase
+          .from('followup_fornecedor')
+          .select('*, compra:controle_compras!inner(cd_compra, dc_fornecedor, dc_grupo, dc_canal, dc_linha, dc_griffe, cd_pedido_fornecedor, cd_material_fornecedor, cd_pedido_sap, cd_material_pai, dc_status)')
+          .neq('compra.dc_status', 'EXCLUIDO')
+          .order('cd_follow_forn', { ascending: false });
+        if (status === 'SEM_RESPOSTA') q = q.is('dt_fim_followup', null);
+        if (status === 'COM_RESPOSTA') q = q.not('dt_fim_followup', 'is', null);
+        return q.range(inicio, fim);
+      };
+      // limita a 5000 follow-ups mais recentes para manter a tela leve
+      let rows = await fetchAll<any>(seleciona, 5000);
       if (status === 'COM_RESPOSTA') {
-        const { data: r } = await supabase.from('vw_followup_ultima_resposta').select('cd_follow');
-        ids = (r ?? []).map((x: any) => x.cd_follow);
-      } else if (status === 'SEM_RESPOSTA') {
-        const { data: r } = await supabase.from('vw_followup_sem_resposta').select('cd_follow');
-        ids = (r ?? []).map((x: any) => x.cd_follow);
+        // mantém apenas o último follow respondido de cada compra
+        const vistos = new Set<number>();
+        rows = rows.filter((r) => {
+          if (vistos.has(r.cd_compra)) return false;
+          vistos.add(r.cd_compra);
+          return true;
+        });
       }
-      let q = supabase
-        .from('followup_fornecedor')
-        .select('*, compra:controle_compras!inner(cd_compra, dc_fornecedor, dc_grupo, dc_canal, dc_linha, dc_griffe, cd_pedido_fornecedor, cd_material_fornecedor, cd_pedido_sap, cd_material_pai, dc_status)')
-        .neq('compra.dc_status', 'EXCLUIDO')
-        .order('cd_follow_forn')
-        .limit(10000);
-      if (ids) {
-        if (ids.length === 0) return [];
-        q = q.in('cd_follow_forn', ids.slice(0, 5000));
-      }
-      const { data: rows, error } = await q;
-      if (error) throw error;
       return (rows ?? []).map((r: any): LinhaFollow => ({
         ...r,
         dc_fornecedor: r.compra?.dc_fornecedor,
@@ -122,9 +123,13 @@ export default function FollowupFornecedor() {
   const exportarPorFornecedor = async () => {
     // gera necessidade + baixa antes, como no legado
     await rotinas.mutateAsync().catch(() => {});
-    const { data: pend, error } = await supabase.from('vw_followup_pendente').select('*').limit(10000);
-    if (error) {
-      toast.error(error.message);
+    let pend: any[];
+    try {
+      pend = await fetchAll<any>((inicio, fim) =>
+        supabase.from('vw_followup_pendente').select('*').order('cd_follow_forn').range(inicio, fim),
+      );
+    } catch (e: any) {
+      toast.error(e.message ?? String(e));
       return;
     }
     const porFornecedor = new Map<string, any[]>();

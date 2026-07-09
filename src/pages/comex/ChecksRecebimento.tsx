@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/misc';
 import { exportarExcel } from '@/lib/exportar';
 import { lerPlanilha } from '@/lib/exportar';
+import { CheckMB51 } from './CheckMB51';
 
 /**
  * Checks de recebimento (consultas de auditoria do legado) + importação MB51.
@@ -23,7 +24,8 @@ const CHECKS = [
 
 export default function ChecksRecebimento() {
   const { usuario, podeEditar, registraLog } = useAuth();
-  const [aba, setAba] = useState(CHECKS[0].id);
+  const [aba, setAba] = useState('mb51');
+  const editavel = podeEditar('checks_recebimento');
 
   const consultas = CHECKS.map((c) =>
     useQuery({
@@ -93,13 +95,17 @@ export default function ChecksRecebimento() {
       </div>
 
       <Tabs value={aba} onValueChange={setAba}>
-        <TabsList>
+        <TabsList className="flex-wrap">
+          <TabsTrigger value="mb51">Divergências MB51</TabsTrigger>
           {CHECKS.map((c, i) => (
             <TabsTrigger key={c.id} value={c.id}>
               {c.nome} ({consultas[i].data?.length ?? '…'})
             </TabsTrigger>
           ))}
         </TabsList>
+        <TabsContent value="mb51">
+          <CheckMB51 editavel={editavel} />
+        </TabsContent>
         {CHECKS.map((c, i) => {
           const dados = consultas[i].data ?? [];
           const cols = dados.length > 0
