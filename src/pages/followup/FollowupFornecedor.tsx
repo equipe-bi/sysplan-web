@@ -57,11 +57,12 @@ export default function FollowupFornecedor() {
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['followups', status],
     queryFn: async () => {
+      // followup_fornecedor não tem FK para controle_compras (dados legados órfãos),
+      // então o join é feito manualmente em duas consultas
       const seleciona = (inicio: number, fim: number) => {
         let q = supabase
           .from('followup_fornecedor')
-          .select('*, compra:controle_compras!inner(cd_compra, dc_fornecedor, dc_grupo, dc_canal, dc_linha, dc_griffe, cd_pedido_fornecedor, cd_material_fornecedor, cd_pedido_sap, cd_material_pai, dc_status)')
-          .neq('compra.dc_status', 'EXCLUIDO')
+          .select('*')
           .order('cd_follow_forn', { ascending: false });
         if (status === 'SEM_RESPOSTA') q = q.is('dt_fim_followup', null);
         if (status === 'COM_RESPOSTA') q = q.not('dt_fim_followup', 'is', null);
@@ -78,6 +79,24 @@ export default function FollowupFornecedor() {
           return true;
         });
       }
+
+      // Busca as compras dos follows em blocos e junta client-side
+      const cds = [...new Set(rows.map((r) => r.cd_compra).filter((c) => c > 0))];
+      const comprasPorCd = new Map<number, any>();
+      for (let i = 0; i < cds.length; i += 300) {
+        const { data: bloco, error } = await supabase
+          .from('controle_compras')
+          .select('cd_compra, dc_fornecedor, dc_grupo, dc_canal, dc_linha, dc_griffe, cd_pedido_fornecedor, cd_material_fornecedor, cd_pedido_sap, cd_material_pai, dc_status')
+          .in('cd_compra', cds.slice(i, i + 300))
+          .limit(1000);
+        if (error) throw error;
+        for (const c of bloco ?? []) comprasPorCd.set(c.cd_compra, c);
+      }
+
+      rows = rows
+        .map((r) => ({ ...r, compra: comprasPorCd.get(r.cd_compra) }))
+        .filter((r) => r.compra && r.compra.dc_status !== 'EXCLUIDO');
+
       return (rows ?? []).map((r: any): LinhaFollow => ({
         ...r,
         dc_fornecedor: r.compra?.dc_fornecedor,
@@ -224,11 +243,30 @@ export default function FollowupFornecedor() {
     }
   };
 
+  const [importando, setImportando] = useState(false);
+
+  /**
+   * Importa o arquivo devolvido pelo fornecedor (aba Orders) e aplica:
+   *  - no follow-up: Production Status, Supplier Comments, Revised Delivery proposta,
+   *    BL, Status fornecedor, Avaliação/Observação do comprador, Novo Recebimento/
+   *    Delivery/Modal, Avaliação Final e datas de avaliação/fim do follow;
+   *  - na compra: Revised Delivery (se o Novo Delivery difere do Delivery Date),
+   *    Modal (se o Novo Modal difere) e Recebimento (se o Novo Recebimento difere
+   *    e a compra ainda está com o recebimento original do arquivo).
+   */
   const importarRespostas = async (file: File) => {
     const buffer = await file.arrayBuffer();
     const wb = XLSX.read(buffer, { cellDates: true });
     const aba = wb.SheetNames.includes('Orders') ? 'Orders' : wb.SheetNames[0];
     const linhas = XLSX.utils.sheet_to_json<Record<string, any>>(wb.Sheets[aba], { defval: null });
+    if (linhas.length === 0) {
+      toast.error(`A aba "${aba}" está vazia ou não tem o cabeçalho esperado.`);
+      return;
+    }
+    if (!('CD Follow' in linhas[0])) {
+      toast.error(`A aba "${aba}" não tem a coluna "CD Follow" — confira se o arquivo é o exportado pelo SysPlan.`);
+      return;
+    }
     // datas: fórmulas zeradas viram 1899/1900 no Excel — tratadas como vazio
     const dt = (v: any) => {
       if (v instanceof Date) return v.getFullYear() < 1990 ? null : v.toISOString().slice(0, 10);
@@ -262,6 +300,7 @@ export default function FollowupFornecedor() {
       return;
     }
     let aplicadas = 0;
+    let comprasAlteradas = 0;
     for (const l of validas) {
       const cd = Number(l['CD Follow']);
       const cdCompra = Number(l['CD Compra']);
@@ -304,7 +343,9 @@ export default function FollowupFornecedor() {
           upd.dt_recebimento = novoRec;
         }
         if (Object.keys(upd).length > 0) {
-          await supabase.from('controle_compras').update(upd).eq('cd_compra', cdCompra);
+          const { error: e2 } = await supabase.from('controle_compras').update(upd).eq('cd_compra', cdCompra);
+          if (e2) toast.error(`Compra ${cdCompra}: ${e2.message}`);
+          else comprasAlteradas++;
         }
       }
       aplicadas++;
@@ -320,8 +361,12 @@ export default function FollowupFornecedor() {
       status: 'aplicado',
       aplicado_em: new Date().toISOString(),
     });
-    toast.success(`${aplicadas} resposta(s) de follow-up aplicada(s).`);
+    toast.success(
+      `Importação concluída: ${aplicadas} follow-up(s) atualizados · ${comprasAlteradas} compra(s) alteradas (delivery/modal/recebimento).`,
+      { duration: 10000 },
+    );
     qc.invalidateQueries({ queryKey: ['followups'] });
+    qc.invalidateQueries({ queryKey: ['compras_lista'] });
   };
 
   const colunas: Coluna<LinhaFollow>[] = [
@@ -363,7 +408,7 @@ export default function FollowupFornecedor() {
                 <FileDown /> Exportar (por fornecedor)
               </Button>
               <label>
-                <Button variant="outline" onClick={() => document.getElementById('imp-follow')?.click()}>
+                <Button variant="outline" loading={importando} onClick={() => document.getElementById('imp-follow')?.click()}>
                   <FileUp /> Importar respostas
                 </Button>
                 <input
@@ -371,10 +416,19 @@ export default function FollowupFornecedor() {
                   type="file"
                   accept=".xlsx,.xlsb,.xls,.csv"
                   className="hidden"
-                  onChange={(e) => {
+                  onChange={async (e) => {
                     const f = e.target.files?.[0];
-                    if (f) importarRespostas(f);
                     e.target.value = '';
+                    if (!f) return;
+                    setImportando(true);
+                    try {
+                      await importarRespostas(f);
+                    } catch (err: any) {
+                      // sem isto, uma falha na leitura do arquivo passava em silêncio
+                      toast.error(`Falha na importação: ${err.message ?? String(err)}`);
+                    } finally {
+                      setImportando(false);
+                    }
                   }}
                 />
               </label>

@@ -91,6 +91,25 @@ export async function gerarArquivoFollowup(linhas: LinhaFollowExport[]): Promise
   larguras.forEach((w, i) => (ws.getColumn(i + 1).width = w));
 
   const colunasData = ['J', 'K', 'N', 'T', 'U'];
+  // Cores de preenchimento por papel: amarelo = fornecedor preenche (M–P),
+  // verde = avaliação Chilli Beans editável (R, S, T), cinza = calculado (Q, U–Z)
+  const FILL_FORNECEDOR = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF2CC' } } as const;
+  const FILL_AVALIACAO = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2EFDA' } } as const;
+  const FILL_CALCULADO = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF2F2F2' } } as const;
+  const bordaFina = {
+    top: { style: 'thin' as const, color: { argb: 'FFD9D9D9' } },
+    left: { style: 'thin' as const, color: { argb: 'FFD9D9D9' } },
+    bottom: { style: 'thin' as const, color: { argb: 'FFD9D9D9' } },
+    right: { style: 'thin' as const, color: { argb: 'FFD9D9D9' } },
+  };
+  // Cabeçalhos destacados nas seções editáveis
+  for (const col of ['M', 'N', 'O', 'P']) {
+    header.getCell(col).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFBF8F00' } };
+  }
+  for (const col of ['R', 'S', 'T']) {
+    header.getCell(col).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF548235' } };
+  }
+
   linhas.forEach((l, idx) => {
     const r = idx + 2;
     const row = ws.getRow(r);
@@ -111,6 +130,12 @@ export async function gerarArquivoFollowup(linhas: LinhaFollowExport[]): Promise
       row.getCell(col).value = { formula } as any;
     }
     for (const col of colunasData) row.getCell(col).numFmt = 'dd/mm/yyyy';
+
+    // Cores por seção + bordas
+    for (const col of ['M', 'N', 'O', 'P']) row.getCell(col).fill = FILL_FORNECEDOR;
+    for (const col of ['R', 'S', 'T']) row.getCell(col).fill = FILL_AVALIACAO;
+    for (const col of ['Q', 'U', 'V', 'W', 'X', 'Y', 'Z']) row.getCell(col).fill = FILL_CALCULADO;
+    for (let c = 1; c <= CABECALHO.length; c++) row.getCell(c).border = bordaFina;
 
     // Libera para edição: M–P (fornecedor) e R, S, T (avaliação Chilli Beans)
     for (const col of ['M', 'N', 'O', 'P', 'R', 'S', 'T']) {
