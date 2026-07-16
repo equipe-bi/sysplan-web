@@ -24,6 +24,7 @@ interface CampoMassa {
 
 const CAMPOS: CampoMassa[] = [
   { campo: 'dt_recebimento', label: 'Data Recebimento', tipo: 'data' },
+  { campo: 'dc_gaveta', label: 'Gaveta', tipo: 'texto' },
   { campo: 'dt_delivery', label: 'Data Delivery', tipo: 'data' },
   { campo: 'dt_revised_delivery', label: 'Revised Delivery', tipo: 'data' },
   { campo: 'dc_status', label: 'Status', tipo: 'combo', comboTipo: 'STATUS' },
@@ -50,12 +51,15 @@ const CAMPOS: CampoMassa[] = [
 export function EdicaoMassaCampo({
   selecionadas,
   grupos,
+  temRecebimentoPassado,
   onAplicado,
   onLimparSelecao,
 }: {
   selecionadas: Set<number>;
   /** Grupos distintos das linhas selecionadas — a edição em massa exige grupo único */
   grupos: string[];
+  /** Alguma linha selecionada tem recebimento de ontem para trás (data travada) */
+  temRecebimentoPassado: boolean;
   onAplicado: () => void;
   onLimparSelecao: () => void;
 }) {
@@ -91,7 +95,7 @@ export function EdicaoMassaCampo({
             // Campos texto livre
             { campo: 'cd_codigo_compra',    label: 'Relógio: Código Compra',   tipo: 'texto' },
             { campo: 'cd_spare_parts',      label: 'Relógio: Spare Parts',     tipo: 'texto' },
-            { campo: 'dc_gaveta',           label: 'Relógio: Gaveta',          tipo: 'texto' },
+            // Gaveta agora é campo comum a todos os grupos (unificado com o antigo Info 7)
             { campo: 'dc_nf_seculus',       label: 'Relógio: NF Seculus',      tipo: 'texto' },
           ] as CampoMassa[]
         : CAMPOS,
@@ -112,6 +116,11 @@ export function EdicaoMassaCampo({
 
   const aplicar = useMutation({
     mutationFn: async () => {
+      if (campo === 'dt_recebimento' && temRecebimentoPassado) {
+        throw new Error(
+          'A seleção tem linha(s) com recebimento já ocorrido (ontem para trás) — essa data só pode ser corrigida na tela Checks de Recebimento.',
+        );
+      }
       if (valor === '' && def.tipo !== 'texto') throw new Error('Informe o novo valor.');
       const novoValor =
         def.tipo === 'numero' ? Number(valor) || 0 : def.tipo === 'data' ? valor || null : valor;

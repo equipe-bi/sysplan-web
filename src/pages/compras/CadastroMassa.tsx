@@ -136,8 +136,8 @@ export function CadastroMassa({ onFechar }: { onFechar: (criou: boolean) => void
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
           <div className="space-y-2">
             <Bloco titulo="Classificação" cor="ambar">
-              <Combo campo="dc_status" label="Status" tipo="STATUS" />
-              <Combo campo="dc_canal" label="Canal" tipo="CANAL" />
+              {Combo({ campo: 'dc_status', label: 'Status', tipo: 'STATUS' })}
+              {Combo({ campo: 'dc_canal', label: 'Canal', tipo: 'CANAL' })}
               <CampoLinha label="Grupo">
                 <Select
                   className={CTRL}
@@ -154,53 +154,53 @@ export function CadastroMassa({ onFechar }: { onFechar: (criou: boolean) => void
                   options={(grupos ?? []).map((g) => g.dc_grupo)}
                 />
               </CampoLinha>
-              <Combo campo="dc_subgrupo" label="Sub Grupo" tipo="SUB GRUPO" grupoCombo={cdGrupo} />
-              <Combo campo="dc_formato" label="Formato" tipo="FORMATO" grupoCombo={cdGrupo} />
-              <Combo campo="dc_sexo" label="Sexo" tipo="SEXO" />
+              {Combo({ campo: 'dc_subgrupo', label: 'Sub Grupo', tipo: 'SUB GRUPO', grupoCombo: cdGrupo })}
+              {Combo({ campo: 'dc_formato', label: 'Formato', tipo: 'FORMATO', grupoCombo: cdGrupo })}
+              {Combo({ campo: 'dc_sexo', label: 'Sexo', tipo: 'SEXO' })}
               <CampoLinha label="Grupo Plan">
                 <Input className={CTRL} value={form.dc_grupo_planejamento ?? ''} disabled />
               </CampoLinha>
             </Bloco>
             <Bloco titulo="Produto" cor="ciano">
-              <Combo campo="dc_segmentacao" label="Segmentação" tipo="SEGMENTACAO" />
-              <Combo campo="dc_linha" label="Linha" tipo="LINHA" />
-              <Combo campo="dc_griffe" label="Griffe" tipo="GRIFFE" />
-              <Combo campo="dc_material1" label="Material 1" tipo="MATERIAL 1" grupoCombo={cdGrupo} />
-              <Combo campo="dc_material2" label="Material 2" tipo="MATERIAL 2" grupoCombo={cdGrupo} />
-              <Combo campo="dc_atributo1" label="Atributo 1" tipo="ATRIBUTO 1" grupoCombo={cdGrupo} />
-              <Combo campo="dc_atributo2" label="Atributo 2" tipo="ATRIBUTO 2" grupoCombo={cdGrupo} />
-              <Texto campo="dc_medidas" label="Medidas" />
+              {Combo({ campo: 'dc_segmentacao', label: 'Segmentação', tipo: 'SEGMENTACAO' })}
+              {Combo({ campo: 'dc_linha', label: 'Linha', tipo: 'LINHA' })}
+              {Combo({ campo: 'dc_griffe', label: 'Griffe', tipo: 'GRIFFE' })}
+              {Combo({ campo: 'dc_material1', label: 'Material 1', tipo: 'MATERIAL 1', grupoCombo: cdGrupo })}
+              {Combo({ campo: 'dc_material2', label: 'Material 2', tipo: 'MATERIAL 2', grupoCombo: cdGrupo })}
+              {Combo({ campo: 'dc_atributo1', label: 'Atributo 1', tipo: 'ATRIBUTO 1', grupoCombo: cdGrupo })}
+              {Combo({ campo: 'dc_atributo2', label: 'Atributo 2', tipo: 'ATRIBUTO 2', grupoCombo: cdGrupo })}
+              {Texto({ campo: 'dc_medidas', label: 'Medidas' })}
             </Bloco>
           </div>
 
           <div className="space-y-2">
             <Bloco titulo="Valores" cor="violeta">
-              <Numero campo="nr_quantidade" label="Quantidade" />
-              <Numero campo="nr_fob_negociado" label="Fob Negociado" />
-              <Numero campo="nr_preco_varejo" label="Preço Varejo" />
+              {Numero({ campo: 'nr_quantidade', label: 'Quantidade' })}
+              {Numero({ campo: 'nr_fob_negociado', label: 'Fob Negociado' })}
+              {Numero({ campo: 'nr_preco_varejo', label: 'Preço Varejo' })}
             </Bloco>
             <Bloco titulo="Fornecedor" cor="verde">
-              <Combo campo="dc_fornecedor" label="Fornecedor" tipo="FORNECEDOR" />
-              <Texto campo="cd_pedido_fornecedor" label="PI" />
-              <Texto campo="cd_material_fornecedor" label="Ref Fornecedor" />
-              <Texto campo="cd_pedido_sap" label="Pedido SAP" />
-              <Texto campo="cd_material_pai" label="Material Pai" />
+              {Combo({ campo: 'dc_fornecedor', label: 'Fornecedor', tipo: 'FORNECEDOR' })}
+              {Texto({ campo: 'cd_pedido_fornecedor', label: 'PI' })}
+              {Texto({ campo: 'cd_material_fornecedor', label: 'Ref Fornecedor' })}
+              {Texto({ campo: 'cd_pedido_sap', label: 'Pedido SAP' })}
+              {Texto({ campo: 'cd_material_pai', label: 'Material Pai' })}
             </Bloco>
             <Bloco titulo="Infos" cor="rosa">
-              <Combo campo="dc_info1" label="Info 1" tipo="INFO 1" grupoCombo={cdGrupo} />
-              <Combo campo="dc_info2" label="Info 2" tipo="INFO 2" grupoCombo={cdGrupo} />
-              <Combo campo="dc_info3" label="Info 3" tipo="INFO 3" grupoCombo={cdGrupo} />
-              <Combo campo="dc_info4" label="Info 4" tipo="INFO 4" grupoCombo={cdGrupo} />
+              {Combo({ campo: 'dc_info1', label: 'Info 1', tipo: 'INFO 1', grupoCombo: cdGrupo })}
+              {Combo({ campo: 'dc_info2', label: 'Info 2', tipo: 'INFO 2', grupoCombo: cdGrupo })}
+              {Combo({ campo: 'dc_info3', label: 'Info 3', tipo: 'INFO 3', grupoCombo: cdGrupo })}
+              {Combo({ campo: 'dc_info4', label: 'Info 4', tipo: 'INFO 4', grupoCombo: cdGrupo })}
             </Bloco>
           </div>
 
           <div className="space-y-2">
             <Bloco titulo="Datas / Logística" cor="marrom">
-              <Data campo="dt_delivery" label="Delivery" />
-              <Data campo="dt_revised_delivery" label="Revised Deliv." />
-              <Combo campo="dc_modal" label="Modal" tipo="MODAL" grupoCombo={cdGrupo} />
-              <Data campo="dt_recebimento" label="Recebimento" />
-              <Combo campo="dc_fup_produto" label="FUP Produto" tipo="FUP PRODUTO" />
+              {Data({ campo: 'dt_delivery', label: 'Delivery' })}
+              {Data({ campo: 'dt_revised_delivery', label: 'Revised Deliv.' })}
+              {Combo({ campo: 'dc_modal', label: 'Modal', tipo: 'MODAL', grupoCombo: cdGrupo })}
+              {Data({ campo: 'dt_recebimento', label: 'Recebimento' })}
+              {Combo({ campo: 'dc_fup_produto', label: 'FUP Produto', tipo: 'FUP PRODUTO' })}
             </Bloco>
             <Bloco titulo="Observações" cor="cinza">
               <Textarea

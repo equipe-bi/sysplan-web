@@ -13,6 +13,11 @@ export function otimizarUrl(url: string): string {
   return url.replace('/image/upload/', '/image/upload/f_auto,q_auto/');
 }
 
+/** Versão miniatura (largura 120px) para previews em listas */
+export function miniaturaUrl(url: string): string {
+  return url.replace(/\/image\/upload\/(f_auto,q_auto\/)?/, '/image/upload/f_auto,q_auto,w_120/');
+}
+
 /** Envia uma imagem ao Cloudinary e retorna a URL segura */
 export async function uploadImagem(arquivo: Blob | File): Promise<string> {
   const form = new FormData();

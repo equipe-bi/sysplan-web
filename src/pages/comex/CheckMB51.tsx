@@ -111,11 +111,20 @@ export function CheckMB51({ editavel }: { editavel: boolean }) {
     mutationFn: async () => {
       if (!alterar?.cd_compra) throw new Error('Linha sem CD de compra.');
       if (!valorAlterar) throw new Error('Informe o novo valor.');
-      const { error } = await supabase
-        .from('controle_compras')
-        .update({ [campoAlterar]: valorAlterar })
-        .eq('cd_compra', alterar.cd_compra);
-      if (error) throw error;
+      if (campoAlterar === 'dt_recebimento') {
+        // Recebimento passado é travado no banco; o Check usa a função autorizada
+        const { error } = await supabase.rpc('fn_corrigir_recebimento', {
+          p_cd_compra: alterar.cd_compra,
+          p_data: valorAlterar,
+        });
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from('controle_compras')
+          .update({ [campoAlterar]: valorAlterar })
+          .eq('cd_compra', alterar.cd_compra);
+        if (error) throw error;
+      }
       registraLog('CheckMB51 - Alterar Registro', alterar.cd_compra, '', valorAlterar, campoAlterar);
     },
     onSuccess: () => {

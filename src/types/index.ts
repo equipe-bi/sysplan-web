@@ -107,6 +107,11 @@ export const CAMPOS_RELOGIO: [keyof Compra, string][] = [
 ];
 
 export interface CompraLista extends Compra {
+  ult_alteracao_em: string | null;
+  ult_alteracao_campo: string | null;
+  ult_alteracao_de: string | null;
+  ult_alteracao_para: string | null;
+  ult_alteracao_usuario: string | null;
   fob_calc: number | null;
   margem_calc: number | null;
   tamanho_calc: string | null;

@@ -21,7 +21,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/misc';
 import { exportarCsv, exportarExcel, exportarPdf, type ColunaExport } from '@/lib/exportar';
-import { anoMes, formatNumber, formatPercent } from '@/lib/utils';
+import { anoMes, formatDateTime, formatNumber, formatPercent, hojeISO } from '@/lib/utils';
+import { miniaturaUrl } from '@/lib/cloudinary';
 import type { CompraLista, ConfigColuna } from '@/types';
 import { campoParaColuna, renderizador } from './colunas';
 import { CadastroMassa } from './CadastroMassa';
@@ -163,13 +164,63 @@ export default function ListaCompras() {
   const opcoesGrupo = useMemo(() => opcoesRapidas('dc_grupo', 'fGrupo'), [baseFiltrada, fCanal, fGriffe, fMaterialPai, fProcesso]);
   const opcoesGriffe = useMemo(() => opcoesRapidas('dc_griffe', 'fGriffe'), [baseFiltrada, fCanal, fGrupo, fMaterialPai, fProcesso]);
 
+  // Miniaturas: mapa ref fornecedor -> URL da foto (Cloudinary), carregado uma vez
+  const { data: mapaFotos } = useQuery({
+    queryKey: ['fotos_produto_mapa'],
+    staleTime: 5 * 60_000,
+    queryFn: async () => {
+      const linhas = await fetchAll<{ cd_ref_fornecedor: string; url: string }>((i, f) =>
+        supabase.from('fotos_produto').select('cd_ref_fornecedor, url').order('cd_ref_fornecedor').range(i, f),
+      );
+      return new Map(linhas.map((l) => [l.cd_ref_fornecedor, miniaturaUrl(l.url)]));
+    },
+  });
+
   const colunas: Coluna<CompraLista>[] = useMemo(() => {
+    const colFoto: Coluna<CompraLista> = {
+      key: '__foto',
+      titulo: 'Foto',
+      ordenavel: false,
+      render: (row) => {
+        const url = row.cd_material_fornecedor ? mapaFotos?.get(row.cd_material_fornecedor) : null;
+        return url ? (
+          <img src={url} alt="" loading="lazy" className="h-10 w-14 rounded border object-contain" />
+        ) : (
+          <div className="h-10 w-14 rounded border border-dashed opacity-30" />
+        );
+      },
+    };
+    const colUltAlteracao: Coluna<CompraLista> = {
+      key: 'ult_alteracao_em',
+      titulo: 'Últ. Alteração',
+      render: (row) =>
+        row.ult_alteracao_em ? (
+          <span>
+            {formatDateTime(row.ult_alteracao_em)}
+            <span className="text-muted-foreground"> · {row.ult_alteracao_usuario || '—'}</span>
+          </span>
+        ) : (
+          ''
+        ),
+    };
+    const colUltMudanca: Coluna<CompraLista> = {
+      key: 'ult_alteracao_campo',
+      titulo: 'Última Mudança',
+      render: (row) =>
+        row.ult_alteracao_campo ? (
+          <span title={`${row.ult_alteracao_de ?? ''} → ${row.ult_alteracao_para ?? ''}`}>
+            <b>{row.ult_alteracao_campo}</b>: {(row.ult_alteracao_de ?? '—') || '—'} → {(row.ult_alteracao_para ?? '—') || '—'}
+          </span>
+        ) : (
+          ''
+        ),
+    };
     const base: Coluna<CompraLista>[] = (configCols ?? []).map((c) => ({
       key: campoParaColuna(c.campo),
       titulo: c.legenda_exibicao ?? c.campo,
       render: renderizador(c),
     }));
-    return base.length > 0
+    const meio = base.length > 0
       ? base
       : [
           { key: 'cd_compra', titulo: 'CD' },
@@ -177,7 +228,8 @@ export default function ListaCompras() {
           { key: 'dc_canal', titulo: 'Canal' },
           { key: 'dc_grupo', titulo: 'Grupo' },
         ];
-  }, [configCols]);
+    return [colFoto, ...meio, colUltAlteracao, colUltMudanca];
+  }, [configCols, mapaFotos]);
 
   const resumo = useMemo(() => {
     const qtde = filtrados.reduce((s, r) => s + (r.nr_quantidade ?? 0), 0);
@@ -332,6 +384,9 @@ export default function ListaCompras() {
             <EdicaoMassaCampo
               selecionadas={selecionadas}
               grupos={gruposSelecionados}
+              temRecebimentoPassado={(compras ?? []).some(
+                (c) => selecionadas.has(c.cd_compra) && !!c.dt_recebimento && c.dt_recebimento < hojeISO(),
+              )}
               onLimparSelecao={() => setSelecionadas(new Set())}
               onAplicado={() => {
                 setSelecionadas(new Set());

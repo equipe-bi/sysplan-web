@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input, Label, Select, Textarea } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/misc';
-import { formatDate, formatNumber, formatPercent } from '@/lib/utils';
+import { formatDate, formatNumber, formatPercent, hojeISO } from '@/lib/utils';
 import { GRUPOS_RELOGIO, type Compra } from '@/types';
 import { Bloco, CampoLinha, CTRL } from './Bloco';
 import { FotoInline } from './FotoProduto';
@@ -44,6 +44,10 @@ export function EdicaoCompra({
     [grupos, form.dc_grupo],
   );
 
+  const [recebimentoOriginal, setRecebimentoOriginal] = useState<string | null>(null);
+  // Recebimento já ocorrido (ontem para trás) é imutável fora do Check de Recebimento
+  const recebimentoTravado = !novo && !!recebimentoOriginal && recebimentoOriginal < hojeISO();
+
   useEffect(() => {
     if (novo) return;
     supabase
@@ -58,6 +62,7 @@ export function EdicaoCompra({
           return;
         }
         setForm(data as Compra);
+        setRecebimentoOriginal((data as Compra).dt_recebimento ?? null);
       });
   }, [cdCompra]);
 
@@ -249,8 +254,8 @@ export function EdicaoCompra({
           {/* Coluna 1 */}
           <div className="space-y-2">
             <Bloco titulo="Classificação" cor="ambar">
-              <Combo campo="dc_status" label="Status" tipo="STATUS" />
-              <Combo campo="dc_canal" label="Canal" tipo="CANAL" />
+              {Combo({ campo: 'dc_status', label: 'Status', tipo: 'STATUS' })}
+              {Combo({ campo: 'dc_canal', label: 'Canal', tipo: 'CANAL' })}
               <CampoLinha label="Grupo">
                 <Select
                   className={CTRL}
@@ -268,13 +273,13 @@ export function EdicaoCompra({
                   options={(grupos ?? []).map((g) => g.dc_grupo)}
                 />
               </CampoLinha>
-              <Combo campo="dc_subgrupo" label="Sub Grupo" tipo="SUB GRUPO" grupoCombo={cdGrupo} />
-              <Combo campo="dc_formato" label="Formato" tipo="FORMATO" grupoCombo={cdGrupo} />
-              <Combo campo="dc_sexo" label="Sexo" tipo="SEXO" />
+              {Combo({ campo: 'dc_subgrupo', label: 'Sub Grupo', tipo: 'SUB GRUPO', grupoCombo: cdGrupo })}
+              {Combo({ campo: 'dc_formato', label: 'Formato', tipo: 'FORMATO', grupoCombo: cdGrupo })}
+              {Combo({ campo: 'dc_sexo', label: 'Sexo', tipo: 'SEXO' })}
             </Bloco>
             <Bloco titulo="Produto" cor="ciano">
-              <Fixo label="Grupo Plan" valor={form.dc_grupo_planejamento} />
-              <Combo campo="dc_segmentacao" label="Segmentação" tipo="SEGMENTACAO" />
+              {Fixo({ label: 'Grupo Plan', valor: form.dc_grupo_planejamento })}
+              {Combo({ campo: 'dc_segmentacao', label: 'Segmentação', tipo: 'SEGMENTACAO' })}
               <CampoLinha label="Linha">
                 <Select
                   className={CTRL}
@@ -287,23 +292,23 @@ export function EdicaoCompra({
                   options={opcoes('LINHA')}
                 />
               </CampoLinha>
-              <Combo campo="dc_griffe" label="Griffe" tipo="GRIFFE" />
-              <Combo campo="dc_material1" label="Material 1" tipo="MATERIAL 1" grupoCombo={cdGrupo} />
-              <Combo campo="dc_material2" label="Material 2" tipo="MATERIAL 2" grupoCombo={cdGrupo} />
-              <Combo campo="dc_atributo1" label="Atributo 1" tipo="ATRIBUTO 1" grupoCombo={cdGrupo} />
-              <Combo campo="dc_atributo2" label="Atributo 2" tipo="ATRIBUTO 2" grupoCombo={cdGrupo} />
+              {Combo({ campo: 'dc_griffe', label: 'Griffe', tipo: 'GRIFFE' })}
+              {Combo({ campo: 'dc_material1', label: 'Material 1', tipo: 'MATERIAL 1', grupoCombo: cdGrupo })}
+              {Combo({ campo: 'dc_material2', label: 'Material 2', tipo: 'MATERIAL 2', grupoCombo: cdGrupo })}
+              {Combo({ campo: 'dc_atributo1', label: 'Atributo 1', tipo: 'ATRIBUTO 1', grupoCombo: cdGrupo })}
+              {Combo({ campo: 'dc_atributo2', label: 'Atributo 2', tipo: 'ATRIBUTO 2', grupoCombo: cdGrupo })}
               <CampoLinha label="Medidas">
                 <Input className={CTRL} value={form.dc_medidas ?? ''} onChange={(e) => set('dc_medidas', e.target.value)} />
               </CampoLinha>
-              <Fixo label="Tamanho" valor={tamanho} />
+              {Fixo({ label: 'Tamanho', valor: tamanho })}
             </Bloco>
           </div>
 
           {/* Coluna 2 */}
           <div className="space-y-2">
             <Bloco titulo="Valores" cor="violeta">
-              <Numero campo="nr_quantidade" label="Quantidade" />
-              <Numero campo="nr_fob_negociado" label="Fob Negociado" />
+              {Numero({ campo: 'nr_quantidade', label: 'Quantidade' })}
+              {Numero({ campo: 'nr_fob_negociado', label: 'Fob Negociado' })}
               <CampoLinha label="Total FOB">
                 <Input
                   className={CTRL} type="number" step="0.01"
@@ -319,16 +324,16 @@ export function EdicaoCompra({
                   }}
                 />
               </CampoLinha>
-              <Fixo label="Fob SAP" valor={formatNumber(fobCalc)} />
-              <Numero campo="nr_preco_varejo" label="Preço Varejo" />
-              <Fixo label="Margem" valor={formatPercent(margem)} />
+              {Fixo({ label: 'Fob SAP', valor: formatNumber(fobCalc) })}
+              {Numero({ campo: 'nr_preco_varejo', label: 'Preço Varejo' })}
+              {Fixo({ label: 'Margem', valor: formatPercent(margem) })}
             </Bloco>
             <Bloco titulo="Fornecedor" cor="verde">
-              <Combo campo="dc_fornecedor" label="Fornecedor" tipo="FORNECEDOR" />
-              <Texto campo="cd_pedido_fornecedor" label="PI" />
-              <Texto campo="cd_material_fornecedor" label="Ref Fornecedor" />
-              <Texto campo="cd_pedido_sap" label="Pedido SAP" />
-              <Texto campo="cd_material_pai" label="Material Pai" />
+              {Combo({ campo: 'dc_fornecedor', label: 'Fornecedor', tipo: 'FORNECEDOR' })}
+              {Texto({ campo: 'cd_pedido_fornecedor', label: 'PI' })}
+              {Texto({ campo: 'cd_material_fornecedor', label: 'Ref Fornecedor' })}
+              {Texto({ campo: 'cd_pedido_sap', label: 'Pedido SAP' })}
+              {Texto({ campo: 'cd_material_pai', label: 'Material Pai' })}
             </Bloco>
             {GRUPOS_RELOGIO.includes(form.dc_grupo ?? '') ? (
               <Bloco titulo="Relógios" cor="rosa">
@@ -376,7 +381,8 @@ export function EdicaoCompra({
               </Bloco>
             ) : (
               <Bloco titulo="Infos" cor="rosa">
-                {infos.map((lbl, i) => {
+                {/* Info 7 foi unificado no campo Gaveta (comum a todos os grupos) */}
+                {infos.slice(0, 6).map((lbl, i) => {
                   const campo = `dc_info${i + 1}` as keyof Compra;
                   return i < 4 ? (
                     <CampoLinha key={campo} label={lbl}>
@@ -394,6 +400,9 @@ export function EdicaoCompra({
                     </CampoLinha>
                   );
                 })}
+                <CampoLinha label="Gaveta">
+                  <Input className={CTRL} value={form.dc_gaveta ?? ''} onChange={(e) => set('dc_gaveta', e.target.value)} />
+                </CampoLinha>
               </Bloco>
             )}
           </div>
@@ -401,18 +410,29 @@ export function EdicaoCompra({
           {/* Coluna 3 */}
           <div className="space-y-2">
             <Bloco titulo="Datas / Logística" cor="marrom">
-              <Data campo="dt_delivery" label="Delivery" />
-              <Data campo="dt_revised_delivery" label="Revised Deliv." />
-              <Combo campo="dc_modal" label="Modal" tipo="MODAL" grupoCombo={cdGrupo} />
-              <Data campo="dt_recebimento" label="Recebimento" />
-              <Fixo label="Lead Time" valor={leadTime} />
+              {Data({ campo: 'dt_delivery', label: 'Delivery' })}
+              {Data({ campo: 'dt_revised_delivery', label: 'Revised Deliv.' })}
+              {Combo({ campo: 'dc_modal', label: 'Modal', tipo: 'MODAL', grupoCombo: cdGrupo })}
+              {recebimentoTravado ? (
+                <CampoLinha label="Recebimento">
+                  <Input
+                    className={CTRL}
+                    value={formatDate(form.dt_recebimento)}
+                    disabled
+                    title="Recebimento já ocorrido — só pode ser corrigido na tela Checks de Recebimento"
+                  />
+                </CampoLinha>
+              ) : (
+                Data({ campo: 'dt_recebimento', label: 'Recebimento' })
+              )}
+              {Fixo({ label: 'Lead Time', valor: leadTime })}
             </Bloco>
             <Bloco titulo="Follow-up / Comex" cor="cinza">
-              <Fixo label="Status Comex" valor={fupGeral?.status_calc ?? ''} />
-              <Fixo label="Processo" valor={fupGeral?.processo_calc ?? ''} />
-              <Fixo label="Embarque" valor={formatDate(fupGeral?.embarque_calc ?? fupGeral?.prev_embarque_calc)} />
-              <Fixo label="Atraque" valor={formatDate(fupGeral?.atraque_calc ?? fupGeral?.prev_atraque_calc)} />
-              <Combo campo="dc_fup_produto" label="FUP Produto" tipo="FUP PRODUTO" />
+              {Fixo({ label: 'Status Comex', valor: fupGeral?.status_calc ?? '' })}
+              {Fixo({ label: 'Processo', valor: fupGeral?.processo_calc ?? '' })}
+              {Fixo({ label: 'Embarque', valor: formatDate(fupGeral?.embarque_calc ?? fupGeral?.prev_embarque_calc) })}
+              {Fixo({ label: 'Atraque', valor: formatDate(fupGeral?.atraque_calc ?? fupGeral?.prev_atraque_calc) })}
+              {Combo({ campo: 'dc_fup_produto', label: 'FUP Produto', tipo: 'FUP PRODUTO' })}
             </Bloco>
             <Bloco titulo="Observações" cor="cinza">
               <Textarea
