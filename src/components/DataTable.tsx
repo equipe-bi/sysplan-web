@@ -124,6 +124,37 @@ export function DataTable<T extends Record<string, any>>({
           />
         </div>
       )}
+
+      {/* Render column filters as a compact toolbar above the table to avoid adding a second thead row */}
+      {columnFilters && (
+        <div className="flex flex-wrap gap-2 items-end p-2 bg-secondary/40">
+          {columnFilters.map((cf) => (
+            <div key={`cf-${cf.key}`} className="w-48">
+              <label className="text-xs text-muted-foreground block mb-1">{cf.key}</label>
+              {cf.tipo === 'select' ? (
+                <select
+                  value={colFiltros[cf.key] ?? ''}
+                  onChange={(e) => { setColFiltros((s) => ({ ...s, [cf.key]: e.target.value })); setPagina(0); }}
+                  className="w-full rounded border px-2 py-1 text-sm"
+                >
+                  <option value="">(Todos)</option>
+                  {(cf.options ?? []).map((op) => (
+                    <option key={op} value={op}>{op}</option>
+                  ))}
+                </select>
+              ) : (
+                <Input
+                  placeholder="Filtrar..."
+                  value={colFiltros[cf.key] ?? ''}
+                  onChange={(e) => { setColFiltros((s) => ({ ...s, [cf.key]: e.target.value })); setPagina(0); }}
+                  className="w-full pl-2 pr-2 py-1 text-sm"
+                />
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
       <div className="rounded-md border overflow-auto scrollbar-thin" style={{ maxHeight: altura }}>
         <table className="w-full caption-bottom text-sm">
           <thead className="sticky top-0 z-10 bg-secondary">
@@ -154,45 +185,6 @@ export function DataTable<T extends Record<string, any>>({
                 </th>
               ))}
             </tr>
-            {/* column filters row */}
-            {columnFilters && (
-              <tr className="border-b bg-secondary/60">
-                {colunas.map((c) => {
-                  const cf = columnFilters.find((x) => x.key === c.key);
-                  return (
-                    <th key={`f-${c.key}`} className="h-10 px-2 py-1 align-middle">
-                      {cf ? (
-                        cf.tipo === 'select' ? (
-                          <select
-                            value={colFiltros[c.key] ?? ''}
-                            onChange={(e) => {
-                              setColFiltros((s) => ({ ...s, [c.key]: e.target.value }));
-                              setPagina(0);
-                            }}
-                            className="w-full rounded border px-2 py-1 text-sm"
-                          >
-                            <option value="">(Todos)</option>
-                            {(cf.options ?? []).map((op) => (
-                              <option key={op} value={op}>{op}</option>
-                            ))}
-                          </select>
-                        ) : (
-                          <Input
-                            placeholder="Filtrar..."
-                            value={colFiltros[c.key] ?? ''}
-                            onChange={(e) => {
-                              setColFiltros((s) => ({ ...s, [c.key]: e.target.value }));
-                              setPagina(0);
-                            }}
-                            className="w-full pl-2 pr-2 py-1 text-sm"
-                          />
-                        )
-                      ) : null}
-                    </th>
-                  );
-                })}
-              </tr>
-            )}
           </thead>
           <tbody>
             {carregando

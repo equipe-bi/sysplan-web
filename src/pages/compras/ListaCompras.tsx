@@ -82,6 +82,20 @@ export default function ListaCompras() {
     },
   });
 
+  // All available columns from backend (used in the columns modal). This returns every column
+  // configured in prm_lista_compras, not only those currently marked 'exibir'.
+  const { data: configColsAll } = useQuery({
+    queryKey: ['prm_lista_compras_all'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('prm_lista_compras')
+        .select('*')
+        .order('ordem');
+      if (error) throw error;
+      return data as ConfigColuna[];
+    },
+  });
+
   const { data: compras, isLoading, refetch } = useQuery({
     queryKey: ['compras_lista', fPO, fPI, anoMesInicio],
     queryFn: async () =>
@@ -601,7 +615,7 @@ export default function ListaCompras() {
                 />
                 <span>Foto</span>
               </label>
-              {(configCols ?? []).map((c) => {
+              {(configColsAll ?? []).map((c) => {
                 const key = campoParaColuna(c.campo);
                 return (
                   <label key={key} className="flex items-center gap-2">
