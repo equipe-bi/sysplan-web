@@ -485,7 +485,7 @@ export default function AcompanhamentoImportacoes() {
           <div className="grid gap-2">
             <div>
               <Label>Marcar como Lançar?</Label>
-              <Select value={assignLancar} onChange={(e) => setAssignLancar(e.target.value)}>
+              <Select value={assignLancar} onChange={(e) => setAssignLancar(e.target.value as 'Sim' | 'Não')}>
                 <option value="Sim">Sim</option>
                 <option value="Não">Não</option>
               </Select>

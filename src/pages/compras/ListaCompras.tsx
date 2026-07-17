@@ -262,59 +262,6 @@ export default function ListaCompras() {
 
     return [colFoto, ...filteredBase, colUltAlteracao, colUltMudanca];
   }, [configCols, mapaFotos, visibleCols]);
-    const colFoto: Coluna<CompraLista> = {
-      key: '__foto',
-      titulo: 'Foto',
-      ordenavel: false,
-      render: (row) => {
-        const url = row.cd_material_fornecedor ? mapaFotos?.get(row.cd_material_fornecedor) : null;
-        return url ? (
-          <img src={url} alt="" loading="lazy" className="h-10 w-14 rounded border object-contain" />
-        ) : (
-          <div className="h-10 w-14 rounded border border-dashed opacity-30" />
-        );
-      },
-    };
-    const colUltAlteracao: Coluna<CompraLista> = {
-      key: 'ult_alteracao_em',
-      titulo: 'Últ. Alteração',
-      render: (row) =>
-        row.ult_alteracao_em ? (
-          <span>
-            {formatDateTime(row.ult_alteracao_em)}
-            <span className="text-muted-foreground"> · {row.ult_alteracao_usuario || '—'}</span>
-          </span>
-        ) : (
-          ''
-        ),
-    };
-    const colUltMudanca: Coluna<CompraLista> = {
-      key: 'ult_alteracao_campo',
-      titulo: 'Última Mudança',
-      render: (row) =>
-        row.ult_alteracao_campo ? (
-          <span title={`${row.ult_alteracao_de ?? ''} → ${row.ult_alteracao_para ?? ''}`}>
-            <b>{row.ult_alteracao_campo}</b>: {(row.ult_alteracao_de ?? '—') || '—'} → {(row.ult_alteracao_para ?? '—') || '—'}
-          </span>
-        ) : (
-          ''
-        ),
-    };
-    const base: Coluna<CompraLista>[] = (configCols ?? []).map((c) => ({
-      key: campoParaColuna(c.campo),
-      titulo: c.legenda_exibicao ?? c.campo,
-      render: renderizador(c),
-    }));
-    const meio = base.length > 0
-      ? base
-      : [
-          { key: 'cd_compra', titulo: 'CD' },
-          { key: 'dc_status', titulo: 'Status' },
-          { key: 'dc_canal', titulo: 'Canal' },
-          { key: 'dc_grupo', titulo: 'Grupo' },
-        ];
-    return [colFoto, ...meio, colUltAlteracao, colUltMudanca];
-  }, [configCols, mapaFotos]);
 
   const resumo = useMemo(() => {
     const qtde = filtrados.reduce((s, r) => s + (r.nr_quantidade ?? 0), 0);
