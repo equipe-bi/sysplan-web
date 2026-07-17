@@ -341,11 +341,6 @@ export default function ListaCompras() {
     setCdEdicao(row.cd_compra);
   };
 
-  // inline filter options for columns
-  const opcCanalFull = Array.from(new Set((compras ?? []).map((c: any) => c.dc_canal).filter(Boolean))).sort();
-  const opcGrupoFull = Array.from(new Set((compras ?? []).map((c: any) => c.dc_grupo).filter(Boolean))).sort();
-  const opcForneFull = Array.from(new Set((compras ?? []).map((c: any) => c.dc_fornecedor).filter(Boolean))).sort();
-
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
@@ -516,19 +511,13 @@ export default function ListaCompras() {
           });
         }}
         onRowDoubleClick={abrirEdicao}
+        autofiltro
         rodape={
           <span className="ml-3">
             Qtde: <b>{formatNumber(resumo.qtde, 0)}</b> · FOB médio: <b>{formatNumber(resumo.fobMedio)}</b> · PV médio:{' '}
             <b>{formatNumber(resumo.pvMedio)}</b> · Margem: <b>{formatPercent(resumo.margem)}</b>
           </span>
         }
-        columnFilters={[
-          { key: 'dc_canal', tipo: 'select', options: opcCanalFull },
-          { key: 'dc_grupo', tipo: 'select', options: opcGrupoFull },
-          { key: 'dc_fornecedor', tipo: 'select', options: opcForneFull },
-          { key: 'cd_pedido_sap', tipo: 'text' },
-          { key: 'cd_material_pai', tipo: 'text' },
-        ]}
       />
 
 

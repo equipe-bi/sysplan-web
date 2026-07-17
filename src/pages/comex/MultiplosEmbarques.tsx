@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { FileDown, PlayCircle, Save } from 'lucide-react';
 import { toast } from 'sonner';
@@ -18,6 +18,10 @@ export default function MultiplosEmbarques() {
   const qc = useQueryClient();
   const [selecionada, setSelecionada] = useState<any | null>(null);
   const [pedidoAjuste, setPedidoAjuste] = useState('');
+  const [soPendentes, setSoPendentes] = useState(true);
+
+  /** Pendente = linha ainda sem o Pedido SAP ajustado preenchido */
+  const ehPendente = (r: any) => !r.cd_pedido_sap_ajuste || String(r.cd_pedido_sap_ajuste).trim() === '';
 
   const { data, isLoading } = useQuery({
     queryKey: ['multiplos_depara'],
@@ -31,14 +35,22 @@ export default function MultiplosEmbarques() {
     },
   });
 
+  // Identificar novos: apaga todos os pendentes (sem pedido ajustado) e reinsere do zero,
+  // preservando as linhas que já têm o Pedido SAP ajustado preenchido.
   const alimentar = useMutation({
     mutationFn: async () => {
+      const del = await supabase
+        .from('prm_depara_pedido_multiplos_embarques')
+        .delete()
+        .or('cd_pedido_sap_ajuste.is.null,cd_pedido_sap_ajuste.eq.');
+      if (del.error) throw del.error;
       const { data, error } = await supabase.rpc('fn_alimentar_depara_multiplos_embarques');
       if (error) throw error;
+      registraLog('Comex - Multiplos Embarques - Recriar Pendentes', 0, '', `${data} inseridos`);
       return data as number;
     },
     onSuccess: (n) => {
-      toast.success(`${n} novo(s) pedido(s) com múltiplos embarques identificado(s).`);
+      toast.success(`Pendentes recriados: ${n} pedido(s) com múltiplos embarques.`);
       qc.invalidateQueries({ queryKey: ['multiplos_depara'] });
     },
     onError: (e) => toast.error(String(e)),
@@ -88,8 +100,18 @@ export default function MultiplosEmbarques() {
     { key: 'cd_pedido_sap', titulo: 'Pedido SAP Original' },
     { key: 'cd_material_pai', titulo: 'Material Pai' },
     { key: 'cd_embarque', titulo: 'Embarque' },
-    { key: 'cd_pedido_sap_ajuste', titulo: 'Pedido Ajustado' },
+    {
+      key: 'cd_pedido_sap_ajuste',
+      titulo: 'Pedido Ajustado',
+      render: (r) => (ehPendente(r) ? <span className="text-destructive">— pendente —</span> : r.cd_pedido_sap_ajuste),
+    },
   ];
+
+  const totalPendentes = useMemo(() => (data ?? []).filter(ehPendente).length, [data]);
+  const filtrados = useMemo(
+    () => (soPendentes ? (data ?? []).filter(ehPendente) : data ?? []),
+    [data, soPendentes],
+  );
 
   return (
     <div className="space-y-4">
@@ -100,9 +122,21 @@ export default function MultiplosEmbarques() {
             Pedidos SAP com mais de um embarque — informe o pedido ajustado por embarque
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
+          <label className="mr-2 flex items-center gap-2 text-sm">
+            <input type="checkbox" className="h-4 w-4" checked={soPendentes} onChange={(e) => setSoPendentes(e.target.checked)} />
+            Somente pendentes ({totalPendentes})
+          </label>
           {editavel && (
-            <Button variant="secondary" loading={alimentar.isPending} onClick={() => alimentar.mutate()}>
+            <Button
+              variant="secondary"
+              loading={alimentar.isPending}
+              onClick={() => {
+                if (confirm('Isto apaga todos os pendentes (sem Pedido Ajustado) e reidentifica do zero. As linhas já ajustadas são preservadas. Continuar?')) {
+                  alimentar.mutate();
+                }
+              }}
+            >
               <PlayCircle /> Identificar novos
             </Button>
           )}
@@ -131,9 +165,10 @@ export default function MultiplosEmbarques() {
 
       <DataTable
         colunas={colunas}
-        dados={data ?? []}
+        dados={filtrados}
         carregando={isLoading}
         rowKey={(r) => r.codigo}
+        autofiltro
         onRowClick={(r) => {
           setSelecionada(r);
           setPedidoAjuste(r.cd_pedido_sap_ajuste ?? '');
