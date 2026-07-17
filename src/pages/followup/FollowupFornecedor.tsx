@@ -13,6 +13,7 @@ import { SearchInput } from '@/components/ui/search-input';
 import { Card, CardContent } from '@/components/ui/card';
 import { formatDate } from '@/lib/utils';
 import { baixarBlob, gerarArquivoFollowup, type LinhaFollowExport } from '@/lib/followup-excel';
+import { prepararExportacaoFollow } from '@/lib/followup-regra';
 import { AvaliacaoFollow } from './AvaliacaoFollow';
 
 type StatusFiltro = '' | 'COM_RESPOSTA' | 'SEM_RESPOSTA';
@@ -123,34 +124,19 @@ export default function FollowupFornecedor() {
     return r;
   }, [data, fornecedor, canal, grupo, pi, materialPai]);
 
+  // Aplica a regra (baixa sistema por chave + geração de novas linhas) sem exportar
   const rotinas = useMutation({
     mutationFn: async () => {
-      const baixa = await supabase.rpc('fn_baixa_automatica_followup');
-      if (baixa.error) throw baixa.error;
-      const infos = await supabase.rpc('fn_atualiza_infos_followup');
-      if (infos.error) throw infos.error;
-      const need = await supabase.rpc('fn_gerar_necessidade_followup');
-      if (need.error) throw need.error;
-      return { baixa: baixa.data, novas: need.data };
+      const r = await prepararExportacaoFollow({
+        fornecedor, canal, grupo, pi, materialPai,
+      });
+      return r;
     },
-    onSuccess: async (r) => {
-      toast.success(`Rotinas executadas: ${r.baixa} baixa(s) automática(s), ${r.novas} follow-up(s) gerado(s).`);
-      registraLog('FollowFornecedor - Rotinas automaticas', 0, '', `baixas=${r.baixa}; novos=${r.novas}`);
+    onSuccess: (r) => {
+      toast.success(`Rotinas: ${r.baixados} baixa(s) sistema, ${r.gerados} follow-up(s) gerado(s).`);
+      registraLog('FollowFornecedor - Rotinas', 0, '', `baixas=${r.baixados}; novos=${r.gerados}`);
       qc.invalidateQueries({ queryKey: ['followups'] });
-
-      // Extra: sincronizar chaves com Acompanhamento de Importações e marcar baixas por embarque
-      try {
-        const extras = await baixaPorFUPComex();
-        const criados = await sincronizarChaves();
-        if (extras > 0 || criados > 0) {
-          toast.success(`Sincronização concluída: ${extras} baixa(s) via AcompImportações, ${criados} follow(s) criados.`);
-          qc.invalidateQueries({ queryKey: ['followups'] });
-          qc.invalidateQueries({ queryKey: ['acompanhamento_importacoes'] });
-          qc.invalidateQueries({ queryKey: ['compras_lista'] });
-        }
-      } catch (err: any) {
-        console.error(err);
-      }
+      qc.invalidateQueries({ queryKey: ['compras_lista'] });
     },
     onError: (e) => toast.error(String(e)),
   });
@@ -381,16 +367,34 @@ export default function FollowupFornecedor() {
     return linhas.length;
   }
 
-  const exportarPorFornecedor = async () => {
-    if (!fornecedor) {
-      toast.error('Selecione o fornecedor para exportar.');
-      return;
-    }
+  /**
+   * Exporta TODOS os fornecedores conforme os filtros da tela (1 arquivo por fornecedor).
+   * Aplica a regra por chave (Material Pai + Pedido SAP): baixa sistema dos que já têm
+   * info no FUP Comex / Agente de Carga e gera novas linhas para recebimento futuro,
+   * exportando apenas as linhas de follow SEM resposta.
+   */
+  const exportarTodos = async () => {
     setExportando(true);
     try {
-      const count = await gerarExportParaFornecedor(fornecedor);
-      if (count === 0) toast.info('Nenhuma compra do fornecedor com Revised Delivery nos próximos 10 meses.');
-      else toast.success(`Exportação concluída: ${count} linha(s).`);
+      const { baixados, gerados, linhasPorFornecedor } = await prepararExportacaoFollow({
+        fornecedor, canal, grupo, pi, materialPai,
+      });
+      if (linhasPorFornecedor.size === 0) {
+        toast.info('Nenhuma linha de follow sem resposta para exportar no filtro atual.');
+        return;
+      }
+      let totalLinhas = 0;
+      for (const [forn, linhas] of linhasPorFornecedor) {
+        const blob = await gerarArquivoFollowup(linhas);
+        const nome = `Followup_Fornecedor_${new Date().toISOString().slice(0, 10).replace(/-/g, '')} - ${forn.replace(/[\\/]/g, '')}.xlsx`;
+        baixarBlob(blob, nome);
+        totalLinhas += linhas.length;
+      }
+      registraLog('FollowFornecedor - Exportacao', 0, '', `${linhasPorFornecedor.size} fornecedores, ${totalLinhas} linhas (baixa=${baixados}, gerados=${gerados})`);
+      toast.success(
+        `${linhasPorFornecedor.size} arquivo(s) gerado(s) — ${totalLinhas} linha(s). Baixa sistema: ${baixados}; gerados: ${gerados}. (senha Plan8)`,
+        { duration: 9000 },
+      );
       qc.invalidateQueries({ queryKey: ['followups'] });
     } catch (e: any) {
       toast.error(e.message ?? String(e));
@@ -560,8 +564,8 @@ export default function FollowupFornecedor() {
               <Button variant="secondary" loading={rotinas.isPending} onClick={() => rotinas.mutate()}>
                 <PlayCircle /> Gerar necessidade + baixa automática
               </Button>
-              <Button variant="outline" loading={exportando} onClick={exportarPorFornecedor}>
-                <FileDown /> Exportar (por fornecedor)
+              <Button variant="outline" loading={exportando} onClick={exportarTodos}>
+                <FileDown /> Exportar (todos os fornecedores do filtro)
               </Button>
               <Button variant="outline" loading={exportando} onClick={async () => {
                 // Exporta para todos os fornecedores visíveis na lista atual (um arquivo por fornecedor)
