@@ -203,9 +203,8 @@ export default function ListaCompras() {
   });
 
   const colunas: Coluna<CompraLista>[] = useMemo(() => {
-    // determine base keys from config or fallback
+    // determine base keys from config (default visible) and load saved visible columns
     const baseKeys = (configCols ?? []).map((c) => campoParaColuna(c.campo));
-    // initialize visibleCols from localStorage when config is available
     if (visibleCols === null && configCols) {
       const key = `lista_compras_cols_${usuario?.id ?? 'anon'}`;
       const saved = typeof window !== 'undefined' ? localStorage.getItem(key) : null;
@@ -215,6 +214,10 @@ export default function ListaCompras() {
         setVisibleCols(baseKeys);
       }
     }
+
+    // Use complete set of columns from backend when available so newly-selected columns
+    // (that were not marked exibir) can still be rendered with proper label and renderer.
+    const allCols = (configColsAll ?? configCols ?? []);
 
     const colFoto: Coluna<CompraLista> = {
       key: '__foto',
@@ -254,7 +257,8 @@ export default function ListaCompras() {
           ''
         ),
     };
-    const base: Coluna<CompraLista>[] = (configCols ?? []).map((c) => ({
+
+    const base: Coluna<CompraLista>[] = allCols.map((c) => ({
       key: campoParaColuna(c.campo),
       titulo: c.legenda_exibicao ?? c.campo,
       render: renderizador(c),
@@ -275,7 +279,7 @@ export default function ListaCompras() {
     const filteredBase = visibleSet ? meio.filter((c) => visibleSet!.has(c.key)) : meio;
 
     return [colFoto, ...filteredBase, colUltAlteracao, colUltMudanca];
-  }, [configCols, mapaFotos, visibleCols]);
+  }, [configCols, configColsAll, mapaFotos, visibleCols]);
 
   const resumo = useMemo(() => {
     const qtde = filtrados.reduce((s, r) => s + (r.nr_quantidade ?? 0), 0);
