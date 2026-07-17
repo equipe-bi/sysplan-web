@@ -169,19 +169,49 @@ export function DataTable<T extends Record<string, any>>({
                   )}
                   onClick={() => c.ordenavel !== false && alternaOrdem(c.key)}
                 >
-                  <span className="inline-flex items-center gap-1">
-                    {c.titulo}
-                    {c.ordenavel !== false &&
-                      (ordem?.key === c.key ? (
-                        ordem.dir === 'asc' ? (
-                          <ArrowUp className="h-3 w-3" />
+                  <div className="flex flex-col">
+                    <span className="inline-flex items-center gap-1">
+                      {c.titulo}
+                      {c.ordenavel !== false &&
+                        (ordem?.key === c.key ? (
+                          ordem.dir === 'asc' ? (
+                            <ArrowUp className="h-3 w-3" />
+                          ) : (
+                            <ArrowDown className="h-3 w-3" />
+                          )
                         ) : (
-                          <ArrowDown className="h-3 w-3" />
-                        )
-                      ) : (
-                        <ArrowUpDown className="h-3 w-3 opacity-30" />
-                      ))}
-                  </span>
+                          <ArrowUpDown className="h-3 w-3 opacity-30" />
+                        ))}
+                    </span>
+
+                    {/* inline filter for this column: if columnFilters prop exists, show a filter control per column. Default to text input when no explicit filter config provided. */}
+                    {columnFilters && (() => {
+                      const cf = columnFilters.find((x) => x.key === c.key) ?? { key: c.key, tipo: 'text' };
+                      return (
+                        <div className="mt-1">
+                          {cf.tipo === 'select' ? (
+                            <select
+                              value={colFiltros[c.key] ?? ''}
+                              onChange={(e) => { setColFiltros((s) => ({ ...s, [c.key]: e.target.value })); setPagina(0); }}
+                              className="w-full rounded border px-2 py-0.5 text-sm"
+                            >
+                              <option value="">(Todos)</option>
+                              {(cf.options ?? []).map((op) => (
+                                <option key={op} value={op}>{op}</option>
+                              ))}
+                            </select>
+                          ) : (
+                            <Input
+                              placeholder="Filtrar..."
+                              value={colFiltros[c.key] ?? ''}
+                              onChange={(e) => { setColFiltros((s) => ({ ...s, [c.key]: e.target.value })); setPagina(0); }}
+                              className="w-full pl-2 pr-2 py-0.5 text-sm"
+                            />
+                          )}
+                        </div>
+                      );
+                    })()}
+                  </div>
                 </th>
               ))}
             </tr>
