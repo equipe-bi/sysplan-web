@@ -89,28 +89,30 @@ const IMPORTACOES: ImportDef[] = [
   },
   {
     id: 'fup_comex',
-    nome: 'Base FUP Comex',
-    descricao: 'Colunas: CD_Embarque, CD_PedidoSAP, CD_MaterialPai, datas e status Comex',
+    nome: 'Base FUP Comex (PRM_FUP_COMEX)',
+    descricao:
+      'Modelo padrão do FUP: Embarque, Nº do Pedido, Referência, Entrega na origem, ETD/ETA (previsão e real), Entrada CB, Qtde. Desembarcada, Vl. Total Pedido, Status. Substitui toda a base a cada importação.',
     tabela: 'ext_fup_comex',
     limparAntes: true,
     chaveDelete: 'id',
     mapear: (l) => {
-      if (!l['CD_PedidoSAP'] && !l['CD_Embarque']) return null;
+      if (!s(l['Nº do Pedido']) || !s(l['Referência'])) return null;
       return {
-        cd_sequencia_embarque: s(l['CD_SequenciaEmbarque']),
-        cd_embarque: s(l['CD_Embarque']),
-        cd_pedido_sap: s(l['CD_PedidoSAP']),
-        cd_material: s(l['CD_Material']),
-        cd_material_pai: s(l['CD_MaterialPai']),
-        dt_entrega_origem: dt(l['DT_EntregaOrigem']),
-        dt_previsao_embarque: dt(l['DT_PrevisaoEmbarque']),
-        dt_embarque_real: dt(l['DT_EmbarqueReal']),
-        dt_previsao_atraque: dt(l['DT_PrevisaoAtraque']),
-        dt_atraque_real: dt(l['DT_AtraqueReal']),
-        dt_chegada_cb: dt(l['DT_ChegadaCB']),
-        nr_quantidade: Number(l['NR_Quantidade']) || 0,
-        nr_fob_total: Number(l['NR_FOB_Total']) || 0,
-        dc_status_comex: s(l['DC_StatusComex']),
+        cd_sequencia_embarque: s(l['Nº Sequência do Embarque']),
+        cd_embarque: s(l['Embarque']),
+        cd_pedido_sap: s(l['Nº do Pedido']),
+        cd_material: s(l['Material']),
+        cd_material_pai: s(l['Referência']),
+        dt_entrega_origem: dt(l['Entrega na origem']),
+        dt_previsao_embarque: dt(l['Previsão de embarque ETD']),
+        dt_embarque_real: dt(l['Embarque ETD']),
+        dt_previsao_atraque: dt(l['Previsão de chegada VIX ETA']),
+        dt_atraque_real: dt(l['Chegada VIX ETA']),
+        dt_chegada_cb: dt(l['Entrada CB']) ?? dt(l['Dt. Recebimento']),
+        nr_quantidade: Number(l['Qtde. Desembarcada']) || 0,
+        // "Qty de Pedido" marca a 1ª linha do pedido — evita somar o total repetido
+        nr_fob_total: Number(l['Qty de Pedido']) === 1 ? Number(l['Vl. Total Pedido']) || 0 : 0,
+        dc_status_comex: s(l['Status']),
       };
     },
   },
