@@ -44,6 +44,7 @@ const MENUS: { grupo: string; itens: ItemMenu[] }[] = [
     grupo: 'Compras',
     itens: [
       { para: '/compras', tela: 'lista_compras', nome: 'Lista de Compras', icone: ShoppingCart },
+      { para: '/atualizacao-sap', tela: 'lista_compras', nome: 'Atualização Pedido SAP / Material Pai', icone: FileSpreadsheet },
       { para: '/followup', tela: 'followup_fornecedor', nome: 'Follow-up Fornecedor', icone: ClipboardCheck },
       { para: '/cadastro-pi', tela: 'cadastro_pi', nome: 'Cadastro de PI', icone: FileSpreadsheet },
     ],

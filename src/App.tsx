@@ -5,6 +5,7 @@ import { Skeleton } from '@/components/ui/misc';
 import Login from '@/pages/Login';
 import Dashboard from '@/pages/Dashboard';
 import ListaCompras from '@/pages/compras/ListaCompras';
+import AtualizacaoSAP from '@/pages/compras/AtualizacaoSAP';
 import FollowupFornecedor from '@/pages/followup/FollowupFornecedor';
 import CadastroPI from '@/pages/pi/CadastroPI';
 import ControleImportacao from '@/pages/comex/ControleImportacao';
@@ -60,6 +61,7 @@ export default function App() {
       >
         <Route index element={<Dashboard />} />
         <Route path="/compras" element={<Protegida tela="lista_compras"><ListaCompras /></Protegida>} />
+        <Route path="/atualizacao-sap" element={<Protegida tela="lista_compras"><AtualizacaoSAP /></Protegida>} />
         <Route path="/followup" element={<Protegida tela="followup_fornecedor"><FollowupFornecedor /></Protegida>} />
         <Route path="/cadastro-pi" element={<Protegida tela="cadastro_pi"><CadastroPI /></Protegida>} />
         <Route path="/controle-importacao" element={<Protegida tela="controle_importacao"><ControleImportacao /></Protegida>} />

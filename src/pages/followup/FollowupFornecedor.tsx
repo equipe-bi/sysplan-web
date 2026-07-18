@@ -565,31 +565,7 @@ export default function FollowupFornecedor() {
                 <PlayCircle /> Gerar necessidade + baixa automática
               </Button>
               <Button variant="outline" loading={exportando} onClick={exportarTodos}>
-                <FileDown /> Exportar (todos os fornecedores do filtro)
-              </Button>
-              <Button variant="outline" loading={exportando} onClick={async () => {
-                // Exporta para todos os fornecedores visíveis na lista atual (um arquivo por fornecedor)
-                const fornecedores = [...new Set((filtrados ?? []).map((f) => f.dc_fornecedor).filter(Boolean))] as string[];
-                if (fornecedores.length === 0) {
-                  toast.error('Nada selecionado para exportar — filtre por fornecedor(s) ou dados visíveis na lista.');
-                  return;
-                }
-                setExportando(true);
-                try {
-                  let total = 0;
-                  for (const f of fornecedores) {
-                    const c = await gerarExportParaFornecedor(f);
-                    total += c;
-                  }
-                  toast.success(`Exportados ${total} linha(s) em ${fornecedores.length} arquivo(s).`);
-                  qc.invalidateQueries({ queryKey: ['followups'] });
-                } catch (err: any) {
-                  toast.error(err.message ?? String(err));
-                } finally {
-                  setExportando(false);
-                }
-              }}>
-                <FileDown /> Exportar (visíveis por fornecedor)
+                <FileDown /> Exportar (conforme filtro)
               </Button>
               <label>
                 <Button variant="outline" loading={importando} onClick={() => document.getElementById('imp-follow')?.click()}>

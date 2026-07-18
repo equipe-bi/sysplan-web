@@ -175,6 +175,7 @@ export default function LancarAcompanhamento() {
     },
     { key: 'lancar', titulo: 'Lançar' },
     { key: 'responsavel', titulo: 'Responsável' },
+    { key: 'cd_compra', titulo: 'CD Compra' },
     { key: 'dc_grupo', titulo: 'Grupo' },
     { key: 'dc_canal', titulo: 'Canal' },
     { key: 'dc_fornecedor', titulo: 'Fornecedor' },

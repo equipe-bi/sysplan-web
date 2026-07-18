@@ -21,7 +21,7 @@ import { SearchInput } from '@/components/ui/search-input';
 import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/misc';
-import { exportarCsv, exportarExcel, exportarPdf, type ColunaExport, lerPlanilha } from '@/lib/exportar';
+import { exportarCsv, exportarExcel, exportarPdf, type ColunaExport } from '@/lib/exportar';
 import { anoMes, formatDateTime, formatNumber, formatPercent, hojeISO } from '@/lib/utils';
 import { miniaturaUrl } from '@/lib/cloudinary';
 import type { CompraLista, ConfigColuna } from '@/types';
@@ -65,8 +65,6 @@ export default function ListaCompras() {
 
   // Column visibility (persistido por usuário)
   const [colsModalOpen, setColsModalOpen] = useState(false);
-  const [importMassaOpen, setImportMassaOpen] = useState(false);
-  const [importandoMassa, setImportandoMassa] = useState(false);
   const [visibleCols, setVisibleCols] = useState<string[] | null>(null);
 
   const { data: configCols } = useQuery({
@@ -367,9 +365,6 @@ export default function ListaCompras() {
           </Button>
           <Button variant="outline" onClick={() => setColsModalOpen(true)}>
             <Layers /> Colunas
-          </Button>
-          <Button variant="outline" onClick={() => setImportMassaOpen(true)}>
-            <FileSpreadsheet /> Importação em Massa
           </Button>
           <Button variant="outline" onClick={() => refetch()}>
             <RefreshCw /> Atualizar
@@ -673,73 +668,6 @@ export default function ListaCompras() {
               if (visibleCols) localStorage.setItem(key, JSON.stringify(visibleCols));
               setColsModalOpen(false);
             }}>Salvar</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Importação em massa (Pedido SAP / Material Pai) */}
-      <Dialog open={importMassaOpen} onOpenChange={setImportMassaOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Importação em Massa — Pedido SAP / Material Pai</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3">
-            <div className="text-sm text-muted-foreground">Exportar um modelo, preencher as colunas e importar para atualizar os registros.</div>
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={() => {
-                const cols: ColunaExport[] = [
-                  { key: 'cd_compra', titulo: 'cd_compra' },
-                  { key: 'cd_pedido_sap', titulo: 'cd_pedido_sap' },
-                  { key: 'cd_material_pai', titulo: 'cd_material_pai' },
-                ];
-                const dados = (filtrados ?? []).map((r: any) => ({ cd_compra: r.cd_compra, cd_pedido_sap: r.cd_pedido_sap ?? '', cd_material_pai: r.cd_material_pai ?? '' }));
-                exportarExcel(cols, dados, 'SysPlan_Modelo_Importacao_PedidoSAP_MaterialPai');
-              }}>Exportar modelo (com CDs visíveis)</Button>
-              <label>
-                <Button variant="outline" loading={importandoMassa}>Importar arquivo</Button>
-                <input
-                  type="file"
-                  accept=".xlsx,.xls,.csv"
-                  className="hidden"
-                  onChange={async (e) => {
-                    const f = e.target.files?.[0];
-                    e.currentTarget.value = '';
-                    if (!f) return;
-                    setImportandoMassa(true);
-                    try {
-                      const linhas = await lerPlanilha(f);
-                      const rows = linhas.map((l) => ({
-                        cd_compra: Number(l['cd_compra'] ?? l['CD_COMPRA'] ?? l['CD Compra'] ?? l['CD Follow'] ?? l['CD']),
-                        cd_pedido_sap: l['cd_pedido_sap'] ?? l['CD_PEDIDO_SAP'] ?? l['cd_pedido_sap'] ?? l['cd_pedido_sap'],
-                        cd_material_pai: l['cd_material_pai'] ?? l['CD_MATERIAL_PAI'] ?? l['cd_material_pai'] ?? l['cd_material_pai'],
-                      })).filter((r) => r.cd_compra);
-                      if (rows.length === 0) throw new Error('Nenhuma linha válida encontrada (cd_compra).');
-                      let aplicadas = 0;
-                      for (const r of rows) {
-                        const upd: any = {};
-                        if (r.cd_pedido_sap) upd.cd_pedido_sap = String(r.cd_pedido_sap);
-                        if (r.cd_material_pai) upd.cd_material_pai = String(r.cd_material_pai);
-                        if (Object.keys(upd).length === 0) continue;
-                        const { error } = await supabase.from('controle_compras').update(upd).eq('cd_compra', r.cd_compra);
-                        if (error) console.error(`CD ${r.cd_compra}:`, error.message);
-                        else aplicadas++;
-                      }
-                      toast.success(`Importação concluída: ${aplicadas} registro(s) atualizados.`);
-                      qc.invalidateQueries({ queryKey: ['compras_lista'] });
-                      setImportMassaOpen(false);
-                    } catch (err: any) {
-                      toast.error(err.message ?? String(err));
-                    } finally {
-                      setImportandoMassa(false);
-                    }
-                  }}
-                />
-              </label>
-            </div>
-            <div className="text-xs text-muted-foreground">O arquivo deve conter as colunas: cd_compra, cd_pedido_sap, cd_material_pai. Use o modelo para evitar problemas.</div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setImportMassaOpen(false)}>Fechar</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

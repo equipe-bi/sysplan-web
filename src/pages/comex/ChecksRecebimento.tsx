@@ -19,6 +19,9 @@ const CHECKS = [
   { id: 'pi_duplicado', nome: 'PI Duplicado', view: 'vw_check_pi_duplicado' },
   { id: 'po_duplicado', nome: 'PO Duplicado', view: 'vw_check_po_duplicado' },
   { id: 'gp_nao_cadastrado', nome: 'GP não cadastrado', view: 'vw_check_gp_nao_cadastrado' },
+  { id: 'volume_dif', nome: 'Diferença de Volume (MB51)', view: 'vw_check_volume_dif' },
+  { id: 'fup_fora_sysplan', nome: 'FUP Comex fora do Sysplan', view: 'vw_check_fup_comex_fora_sysplan' },
+  { id: 'fup_dif_volume', nome: 'Dif. Volume FUP Comex', view: 'vw_check_fup_comex_dif_volume' },
   { id: 'multiplos_pendentes', nome: 'Múltiplos embarques pendentes', view: 'vw_multiplos_embarques_pendentes' },
 ];
 
