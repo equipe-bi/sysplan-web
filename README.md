@@ -24,7 +24,7 @@ Toda a regra de negócio do Access foi preservada, e foram incorporados os contr
 de **relógios** (antes uma planilha à parte) e do **agente de carga** (antes a
 planilha do despachante Hoffen).
 
-> 📄 Contexto completo da aplicação (para uso com outras IAs): [`docs/CONTEXTO_APLICACAO.md`](docs/CONTEXTO_APLICACAO.md)
+> 📄 Contexto completo da aplicação: [`docs/CONTEXTO_APLICACAO.md`](docs/CONTEXTO_APLICACAO.md)
 > 🔎 Análise do sistema legado: [`docs/ANALISE_LEGADO.md`](docs/ANALISE_LEGADO.md)
 
 ## ✨ Principais recursos
