@@ -93,19 +93,21 @@ export function AppLayout() {
     <div className="flex h-screen overflow-hidden">
       <aside
         className={cn(
-          'flex shrink-0 flex-col border-r bg-blue-700 text-white transition-all duration-200',
+          'flex shrink-0 flex-col border-r border-blue-950/40 bg-gradient-to-b from-blue-800 to-blue-950 text-blue-50 shadow-lg transition-all duration-200',
           aberta ? 'w-60' : 'w-14',
         )}
       >
-        <div className="flex h-14 items-center gap-2 border-b px-3">
-          <PackageSearch className="h-6 w-6 shrink-0 text-primary" />
-          {aberta && <span className="text-lg font-bold tracking-tight">SysPlan</span>}
+        <div className="flex h-14 items-center gap-2 border-b border-white/10 px-3">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/15 ring-1 ring-white/20">
+            <PackageSearch className="h-5 w-5 text-white" />
+          </div>
+          {aberta && <span className="text-lg font-bold tracking-tight text-white">SysPlan</span>}
         </div>
         <nav className="flex-1 space-y-4 overflow-y-auto scrollbar-thin p-2">
           {grupos.map((g) => (
             <div key={g.grupo}>
               {aberta && (
-                <p className="mb-1 px-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                <p className="mb-1 px-2 text-[10px] font-semibold uppercase tracking-wider text-blue-300/80">
                   {g.grupo}
                 </p>
               )}
@@ -119,8 +121,8 @@ export function AppLayout() {
                     cn(
                       'flex items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors',
                       isActive
-                        ? 'bg-primary text-primary-foreground'
-                        : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+                        ? 'bg-white/20 font-semibold text-white shadow-sm ring-1 ring-white/10'
+                        : 'text-blue-100 hover:bg-white/10 hover:text-white',
                     )
                   }
                 >
@@ -134,23 +136,35 @@ export function AppLayout() {
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-14 shrink-0 items-center justify-between border-b bg-blue-700 text-white px-4">
-          <Button variant="ghost" size="icon" onClick={() => setAberta(!aberta)}>
+        <header className="flex h-14 shrink-0 items-center justify-between border-b border-blue-900/50 bg-gradient-to-r from-blue-800 to-blue-600 px-4 text-white shadow-md">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="text-white hover:bg-white/15 hover:text-white"
+            onClick={() => setAberta(!aberta)}
+          >
             {aberta ? <PanelLeftClose /> : <PanelLeftOpen />}
           </Button>
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="icon" onClick={alternar} title="Alternar tema">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-white hover:bg-white/15 hover:text-white"
+              onClick={alternar}
+              title="Alternar tema"
+            >
               {tema === 'dark' ? <Sun /> : <Moon />}
             </Button>
             <div className="hidden text-right sm:block">
               <p className="text-sm font-medium leading-tight">{usuario?.nome}</p>
-              <p className="text-xs text-muted-foreground leading-tight">
+              <p className="text-xs text-blue-200 leading-tight">
                 {usuario?.perfil === 'admin' ? 'Administrador' : 'Usuário'}
               </p>
             </div>
             <Button
               variant="ghost"
               size="icon"
+              className="text-white hover:bg-white/15 hover:text-white"
               title="Sair"
               onClick={async () => {
                 await sair();

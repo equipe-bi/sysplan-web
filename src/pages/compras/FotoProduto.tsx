@@ -4,6 +4,7 @@ import { ImageOff, Trash2, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 import { buscarFotoProduto, salvarFotoProduto } from '@/lib/cloudinary';
+import { comprimirImagem, salvarCopiaLocal } from '@/lib/imagem';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
@@ -87,8 +88,16 @@ export function FotoInline({
     }
     setEnviando(true);
     try {
-      await salvarFotoProduto(refFornecedor, file);
-      toast.success('Foto salva no banco de imagens.');
+      // 1) comprime para no máximo 300 KB
+      const comprimida = await comprimirImagem(file, 300 * 1024);
+      // 2) grava uma cópia local — pede a pasta ao usuário (não bloqueia o upload)
+      const gravou = await salvarCopiaLocal(`${refFornecedor}.jpg`, comprimida).catch(() => false);
+      // 3) sobe a versão comprimida ao banco de imagens
+      await salvarFotoProduto(refFornecedor, comprimida);
+      const kb = Math.round(comprimida.size / 1024);
+      toast.success(
+        `Foto salva (${kb} KB) no banco de imagens${gravou ? ' e cópia local gravada' : ''}.`,
+      );
       qc.invalidateQueries({ queryKey: ['foto_produto', refFornecedor] });
     } catch (e: any) {
       toast.error(e.message ?? String(e));

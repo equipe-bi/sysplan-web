@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { comprimirImagem } from '@/lib/imagem';
 
 /**
  * Banco de imagens (Cloudinary) para fotos de produto.
@@ -40,7 +41,13 @@ export async function uploadImagem(arquivo: Blob | File): Promise<string> {
  * usado pela lista de compras e pelos formulários.
  */
 export async function salvarFotoProduto(refFornecedor: string, arquivo: Blob | File): Promise<string> {
-  const url = await uploadImagem(arquivo);
+  // Reduz para no máximo 300 KB antes de subir (economia de espaço no Cloudinary).
+  // Se já for um JPEG pequeno (ex.: cópia já comprimida), reaproveita sem reencodar.
+  const otimizada =
+    arquivo.type === 'image/jpeg' && arquivo.size <= 300 * 1024
+      ? arquivo
+      : await comprimirImagem(arquivo, 300 * 1024);
+  const url = await uploadImagem(otimizada);
   const { error } = await supabase
     .from('fotos_produto')
     .upsert({ cd_ref_fornecedor: refFornecedor, url, atualizado_em: new Date().toISOString() });
