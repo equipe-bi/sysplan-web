@@ -1,12 +1,15 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Search } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 import { GRUPO_GERAL, useCombos, useEssentials, useGrupos } from '@/services/combos';
 import { calcLeadTime, calcMargem, defineTamanhoProduto, labelsInfo, validaCompra, type ParametroCusto } from '@/lib/regras';
+import { salvarFotoProduto } from '@/lib/cloudinary';
+import { comprimirImagem, gravarArquivoLocal, pedirPastaLocal } from '@/lib/imagem';
 import { Button } from '@/components/ui/button';
+import { confirmar } from '@/components/ui/confirm';
 import { Input, Label, Select, Textarea } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/misc';
@@ -31,8 +34,10 @@ export function EdicaoCompra({
   onFechar: (salvou: boolean) => void;
 }) {
   const { registraLog } = useAuth();
+  const qc = useQueryClient();
   const [form, setForm] = useState<Partial<Compra>>(VAZIA);
   const [salvando, setSalvando] = useState(false);
+  const [fotoPendente, setFotoPendente] = useState<File | null>(null);
   const novo = cdCompra === 0;
 
   const { data: grupos } = useGrupos();
@@ -163,7 +168,18 @@ export function EdicaoCompra({
       toast.error(erros[0]);
       return;
     }
-    if (!confirm('Deseja salvar?')) return;
+    if (!(await confirmar({ titulo: 'Salvar alterações', mensagem: 'Deseja salvar as alterações desta compra?', textoConfirmar: 'Salvar' }))) return;
+
+    // Foto: só agora (ao salvar) enviamos ao Cloudinary. Se houver foto pendente,
+    // pedimos a pasta ANTES dos awaits longos para o explorer abrir de fato.
+    const ref = form.cd_material_fornecedor ?? '';
+    let dirHandle: any = null;
+    let fotoBlob: Blob | null = null;
+    if (fotoPendente && ref) {
+      dirHandle = await pedirPastaLocal(); // seletor de pasta (dentro do gesto do OK)
+      fotoBlob = await comprimirImagem(fotoPendente, 300 * 1024);
+    }
+
     setSalvando(true);
     const payload = {
       ...form,
@@ -180,11 +196,25 @@ export function EdicaoCompra({
     } else {
       ({ error } = await supabase.from('controle_compras').update(payload).eq('cd_compra', cdCompra));
     }
-    setSalvando(false);
     if (error) {
+      setSalvando(false);
       toast.error(error.message);
       return;
     }
+
+    // Envia a foto (comprimida) ao Cloudinary e grava a cópia local na pasta escolhida
+    if (fotoBlob && ref) {
+      try {
+        await salvarFotoProduto(ref, fotoBlob);
+        await gravarArquivoLocal(dirHandle, `${ref}.jpg`, fotoBlob);
+        qc.invalidateQueries({ queryKey: ['foto_produto', ref] });
+        qc.invalidateQueries({ queryKey: ['fotos_produto_mapa'] });
+      } catch (e: any) {
+        toast.error(`Compra salva, mas a foto falhou: ${e.message ?? String(e)}`);
+      }
+    }
+
+    setSalvando(false);
     toast.success('Alterações salvas com sucesso!');
     onFechar(true);
   };
@@ -451,7 +481,7 @@ export function EdicaoCompra({
           {/* Coluna 4: foto e cores */}
           <div className="space-y-2">
             <Bloco titulo="Foto" cor="cinza">
-              <FotoInline refFornecedor={form.cd_material_fornecedor ?? null} altura={170} permitirUpload />
+              <FotoInline refFornecedor={form.cd_material_fornecedor ?? null} altura={170} permitirUpload deferir onPendenteChange={setFotoPendente} />
               <p className="truncate text-center text-[10px] text-muted-foreground">{form.cd_material_fornecedor}</p>
             </Bloco>
             <Bloco titulo="Cores (Pedido SAP)" cor="cinza">

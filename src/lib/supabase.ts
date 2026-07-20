@@ -34,3 +34,27 @@ export async function fetchAll<T>(
   }
   return todas;
 }
+
+/**
+ * Igual ao fetchAll, mas dispara as páginas em paralelo (em lotes) a partir de um
+ * total já conhecido — muito mais rápido para tabelas grandes. Obtenha o total
+ * com uma consulta `count: 'exact', head: true` antes de chamar.
+ */
+export async function fetchPaginasParalelo<T>(
+  montarQuery: (inicio: number, fim: number) => PromiseLike<{ data: T[] | null; error: any }>,
+  total: number,
+  concorrencia = 6,
+): Promise<T[]> {
+  const paginas: [number, number][] = [];
+  for (let i = 0; i < total; i += 1000) paginas.push([i, i + 999]);
+  const todas: T[] = [];
+  for (let i = 0; i < paginas.length; i += concorrencia) {
+    const lote = paginas.slice(i, i + concorrencia);
+    const resultados = await Promise.all(lote.map(([a, b]) => montarQuery(a, b)));
+    for (const { data, error } of resultados) {
+      if (error) throw error;
+      todas.push(...(data ?? []));
+    }
+  }
+  return todas;
+}

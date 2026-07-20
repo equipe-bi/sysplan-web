@@ -26,6 +26,7 @@ import {
 import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/context/ThemeContext';
 import { Button } from '@/components/ui/button';
+import { ConfirmHost } from '@/components/ui/confirm';
 import { cn } from '@/lib/utils';
 
 interface ItemMenu {
@@ -179,6 +180,7 @@ export function AppLayout() {
           <Outlet />
         </main>
       </div>
+      <ConfirmHost />
     </div>
   );
 }

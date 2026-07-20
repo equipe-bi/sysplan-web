@@ -2,12 +2,13 @@ import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { FileDown, FileUp, RefreshCw, Save, Search } from 'lucide-react';
 import { toast } from 'sonner';
-import { supabase, fetchAll } from '@/lib/supabase';
+import { supabase, fetchPaginasParalelo } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 import { DataTable, type Coluna } from '@/components/DataTable';
 import { Button } from '@/components/ui/button';
 import { Input, Label } from '@/components/ui/input';
-import { Card, CardContent } from '@/components/ui/card';
+import { PainelFiltros } from '@/components/ui/painel-filtros';
+import { confirmar } from '@/components/ui/confirm';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { exportarExcel, lerPlanilha } from '@/lib/exportar';
 
@@ -27,17 +28,26 @@ export default function AtualizacaoSAP() {
   const [edicao, setEdicao] = useState<any | null>(null);
   const [importando, setImportando] = useState(false);
 
+  const COLS_SAP = 'cd_compra, dc_status, dc_grupo, dc_canal, dc_fornecedor, cd_pedido_fornecedor, cd_material_fornecedor, cd_pedido_sap, cd_material_pai';
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['atualizacao_sap'],
-    queryFn: async () =>
-      fetchAll<any>((i, f) =>
-        supabase
-          .from('controle_compras')
-          .select('cd_compra, dc_status, dc_grupo, dc_canal, dc_fornecedor, cd_pedido_fornecedor, cd_material_fornecedor, cd_pedido_sap, cd_material_pai')
-          .neq('dc_status', 'EXCLUIDO')
-          .order('cd_compra', { ascending: false })
-          .range(i, f),
-      ),
+    queryFn: async () => {
+      // conta primeiro e busca as páginas em paralelo (bem mais rápido que sequencial)
+      const { count } = await supabase
+        .from('controle_compras')
+        .select('cd_compra', { count: 'exact', head: true })
+        .neq('dc_status', 'EXCLUIDO');
+      return fetchPaginasParalelo<any>(
+        (i, f) =>
+          supabase
+            .from('controle_compras')
+            .select(COLS_SAP)
+            .neq('dc_status', 'EXCLUIDO')
+            .order('cd_compra', { ascending: false })
+            .range(i, f),
+        count ?? 0,
+      );
+    },
   });
 
   const filtrados = useMemo(() => {
@@ -76,18 +86,34 @@ export default function AtualizacaoSAP() {
           cd_pedido_sap: val(l, 'cd_pedido_sap', 'CD_PEDIDO_SAP', 'Pedido SAP', 'PO'),
           cd_material_pai: val(l, 'cd_material_pai', 'CD_MATERIAL_PAI', 'Material Pai'),
         }))
-        .filter((r) => r.cd_compra);
-      if (rows.length === 0) throw new Error('Nenhuma linha válida encontrada (coluna cd_compra obrigatória).');
+        .filter((r) => r.cd_compra && (r.cd_pedido_sap != null || r.cd_material_pai != null));
+      if (rows.length === 0) throw new Error('Nenhuma linha válida encontrada (colunas cd_compra + Pedido SAP/Material Pai).');
+
+      // Confirmação: mostra a quantidade de linhas que serão alteradas antes de executar
+      const ok = await confirmar({
+        titulo: 'Confirmar importação',
+        mensagem: `${rows.length.toLocaleString('pt-BR')} linha(s) serão atualizadas (Pedido SAP / Material Pai).\n\nDeseja executar a importação?`,
+        textoConfirmar: 'Executar importação',
+      });
+      if (!ok) return;
+
       let aplicadas = 0;
       const erros: string[] = [];
-      for (const r of rows) {
-        const upd: any = {};
-        if (r.cd_pedido_sap != null) upd.cd_pedido_sap = String(r.cd_pedido_sap);
-        if (r.cd_material_pai != null) upd.cd_material_pai = String(r.cd_material_pai);
-        if (Object.keys(upd).length === 0) continue;
-        const { error } = await supabase.from('controle_compras').update(upd).eq('cd_compra', r.cd_compra);
-        if (error) erros.push(`CD ${r.cd_compra}: ${error.message}`);
-        else aplicadas++;
+      // executa em lotes paralelos para acelerar
+      for (let i = 0; i < rows.length; i += 25) {
+        const lote = rows.slice(i, i + 25);
+        const res = await Promise.all(
+          lote.map((r) => {
+            const upd: any = {};
+            if (r.cd_pedido_sap != null) upd.cd_pedido_sap = String(r.cd_pedido_sap);
+            if (r.cd_material_pai != null) upd.cd_material_pai = String(r.cd_material_pai);
+            return supabase.from('controle_compras').update(upd).eq('cd_compra', r.cd_compra).then(({ error }) => ({ cd: r.cd_compra, error }));
+          }),
+        );
+        for (const { cd, error } of res) {
+          if (error) erros.push(`CD ${cd}: ${error.message}`);
+          else aplicadas++;
+        }
       }
       registraLog('AtualizacaoSAP - Importacao em Massa', 0, '', `${aplicadas} atualizados`);
       toast.success(`${aplicadas} registro(s) atualizados${erros.length ? ` · ${erros.length} erro(s)` : ''}.`, { duration: 8000 });
@@ -157,8 +183,7 @@ export default function AtualizacaoSAP() {
         </div>
       </div>
 
-      <Card>
-        <CardContent className="flex items-end gap-3 p-3">
+      <PainelFiltros>
           <div className="w-80">
             <Label>Pesquisar (CD, PI, Ref, Pedido SAP, Material Pai, Fornecedor)</Label>
             <div className="relative">
@@ -166,8 +191,7 @@ export default function AtualizacaoSAP() {
               <Input className="pl-8" value={busca} onChange={(e) => setBusca(e.target.value)} />
             </div>
           </div>
-        </CardContent>
-      </Card>
+      </PainelFiltros>
 
       <DataTable
         colunas={colunas}

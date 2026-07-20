@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 import { GRUPO_GERAL, useCombos, useGrupos } from '@/services/combos';
 import { Button } from '@/components/ui/button';
+import { confirmar } from '@/components/ui/confirm';
 import { Input, Label, Select } from '@/components/ui/input';
 import { GRUPOS_RELOGIO } from '@/types';
 
@@ -187,8 +188,8 @@ export function EdicaoMassaCampo({
           )}
         </div>
       </div>
-      <Button size="sm" loading={aplicar.isPending} onClick={() => {
-        if (confirm(`Aplicar "${def.label}" em ${selecionadas.size} linha(s)?`)) aplicar.mutate();
+      <Button size="sm" loading={aplicar.isPending} onClick={async () => {
+        if (await confirmar({ titulo: 'Aplicar em massa', mensagem: `Aplicar "${def.label}" em ${selecionadas.size} linha(s)?`, textoConfirmar: 'Aplicar' })) aplicar.mutate();
       }}>
         Aplicar
       </Button>

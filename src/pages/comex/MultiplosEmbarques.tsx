@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 import { DataTable, type Coluna } from '@/components/DataTable';
 import { Button } from '@/components/ui/button';
+import { confirmar } from '@/components/ui/confirm';
 import { Input, Label } from '@/components/ui/input';
 import { SearchInput } from '@/components/ui/search-input';
 import { Card, CardContent } from '@/components/ui/card';
@@ -131,8 +132,8 @@ export default function MultiplosEmbarques() {
             <Button
               variant="secondary"
               loading={alimentar.isPending}
-              onClick={() => {
-                if (confirm('Isto apaga todos os pendentes (sem Pedido Ajustado) e reidentifica do zero. As linhas já ajustadas são preservadas. Continuar?')) {
+              onClick={async () => {
+                if (await confirmar({ titulo: 'Identificar novos', mensagem: 'Isto apaga todos os pendentes (sem Pedido Ajustado) e reidentifica do zero. As linhas já ajustadas são preservadas. Continuar?', variante: 'destructive', textoConfirmar: 'Reidentificar' })) {
                   alimentar.mutate();
                 }
               }}

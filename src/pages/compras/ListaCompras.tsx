@@ -18,7 +18,8 @@ import { DataTable, type Coluna } from '@/components/DataTable';
 import { Button } from '@/components/ui/button';
 import { Input, Label, Select } from '@/components/ui/input';
 import { SearchInput } from '@/components/ui/search-input';
-import { Card, CardContent } from '@/components/ui/card';
+import { PainelFiltros } from '@/components/ui/painel-filtros';
+import { confirmar } from '@/components/ui/confirm';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/misc';
 import { exportarCsv, exportarExcel, exportarPdf, type ColunaExport } from '@/lib/exportar';
@@ -55,13 +56,13 @@ export default function ListaCompras() {
   const [selecionadas, setSelecionadas] = useState<Set<number>>(new Set());
   const [fotoRef, setFotoRef] = useState<string | null>(null);
   const ultimoClicado = useRef<number | null>(null);
-  // Filtros rápidos em cascata (opções de um dependem dos demais)
-  const [fCanal, setFCanal] = useState('');
-  const [fGrupo, setFGrupo] = useState('');
+  // Filtros rápidos
   const [fGriffe, setFGriffe] = useState('');
   const [fMaterialPai, setFMaterialPai] = useState('');
   const [fProcesso, setFProcesso] = useState('');
   const [fRefFornecedor, setFRefFornecedor] = useState('');
+  const [fPedidoSap, setFPedidoSap] = useState('');
+  const [fPINum, setFPINum] = useState('');
 
   // Column visibility (persistido por usuário)
   const [colsModalOpen, setColsModalOpen] = useState(false);
@@ -142,12 +143,10 @@ export default function ListaCompras() {
     return r;
   }, [compras, filtrosAvancados]);
 
-  const filtrosRapidos = { fCanal, fGrupo, fGriffe, fMaterialPai, fProcesso, fRefFornecedor };
+  const filtrosRapidos = { fGriffe, fMaterialPai, fProcesso, fRefFornecedor, fPedidoSap, fPINum };
 
   const aplicaRapidos = (dados: CompraLista[], ignorar?: keyof typeof filtrosRapidos) => {
     let r = dados;
-    if (fCanal && ignorar !== 'fCanal') r = r.filter((x) => x.dc_canal === fCanal);
-    if (fGrupo && ignorar !== 'fGrupo') r = r.filter((x) => x.dc_grupo === fGrupo);
     if (fGriffe && ignorar !== 'fGriffe') r = r.filter((x) => x.dc_griffe === fGriffe);
     if (fMaterialPai && ignorar !== 'fMaterialPai') {
       const v = fMaterialPai.toLowerCase();
@@ -161,12 +160,20 @@ export default function ListaCompras() {
       const v = fRefFornecedor.toLowerCase();
       r = r.filter((x) => (x.cd_material_fornecedor ?? '').toLowerCase().includes(v));
     }
+    if (fPedidoSap && ignorar !== 'fPedidoSap') {
+      const v = fPedidoSap.toLowerCase();
+      r = r.filter((x) => (x.cd_pedido_sap ?? '').toLowerCase().includes(v));
+    }
+    if (fPINum && ignorar !== 'fPINum') {
+      const v = fPINum.toLowerCase();
+      r = r.filter((x) => (x.cd_pedido_fornecedor ?? '').toLowerCase().includes(v));
+    }
     return r;
   };
 
   const filtrados = useMemo(
     () => aplicaRapidos(baseFiltrada),
-    [baseFiltrada, fCanal, fGrupo, fGriffe, fMaterialPai, fProcesso, fRefFornecedor],
+    [baseFiltrada, fGriffe, fMaterialPai, fProcesso, fRefFornecedor, fPedidoSap, fPINum],
   );
 
   // Opções em cascata: cada combo lista os valores existentes considerando os OUTROS filtros
@@ -184,9 +191,7 @@ export default function ListaCompras() {
     [compras, selecionadas],
   );
 
-  const opcoesCanal = useMemo(() => opcoesRapidas('dc_canal', 'fCanal'), [baseFiltrada, fGrupo, fGriffe, fMaterialPai, fProcesso]);
-  const opcoesGrupo = useMemo(() => opcoesRapidas('dc_grupo', 'fGrupo'), [baseFiltrada, fCanal, fGriffe, fMaterialPai, fProcesso]);
-  const opcoesGriffe = useMemo(() => opcoesRapidas('dc_griffe', 'fGriffe'), [baseFiltrada, fCanal, fGrupo, fMaterialPai, fProcesso]);
+  const opcoesGriffe = useMemo(() => opcoesRapidas('dc_griffe', 'fGriffe'), [baseFiltrada, fMaterialPai, fProcesso, fPedidoSap, fPINum]);
 
   // Miniaturas: mapa ref fornecedor -> URL da foto (Cloudinary), carregado uma vez
   const { data: mapaFotos } = useQuery({
@@ -381,14 +386,13 @@ export default function ListaCompras() {
         </div>
       </div>
 
-      <Card>
-        <CardContent className="flex flex-wrap items-end gap-3 p-3">
+      <PainelFiltros>
           <div className="w-44">
-            <Label>PO</Label>
+            <Label>Comprador</Label>
             <Select value={fPO} onChange={(e) => setFPO(e.target.value)} placeholder="Todos" options={listaCompradores} />
           </div>
           <div className="w-44">
-            <Label>PI</Label>
+            <Label>Grupo Produto</Label>
             <Select value={fPI} onChange={(e) => setFPI(e.target.value)} placeholder="Todos" options={listaCompradorGrupos} />
           </div>
           <div className="w-28">
@@ -396,12 +400,12 @@ export default function ListaCompras() {
             <Input value={anoMesInicio} onChange={(e) => setAnoMesInicio(e.target.value.replace(/\D/g, ''))} />
           </div>
           <div className="w-36">
-            <Label>Canal</Label>
-            <Select value={fCanal} onChange={(e) => setFCanal(e.target.value)} placeholder="Todos" options={opcoesCanal} />
+            <Label>Pedido SAP</Label>
+            <SearchInput value={fPedidoSap} onChange={(e) => setFPedidoSap(e.target.value)} onClear={() => setFPedidoSap('')} />
           </div>
-          <div className="w-36">
-            <Label>Grupo</Label>
-            <Select value={fGrupo} onChange={(e) => setFGrupo(e.target.value)} placeholder="Todos" options={opcoesGrupo} />
+          <div className="w-32">
+            <Label>PI</Label>
+            <SearchInput value={fPINum} onChange={(e) => setFPINum(e.target.value)} onClear={() => setFPINum('')} />
           </div>
           <div className="w-40">
             <Label>Griffe</Label>
@@ -426,12 +430,12 @@ export default function ListaCompras() {
               setFPI('');
               setAnoMesInicio(String(anoMes(-10)));
               setFiltrosAvancados([]);
-              setFCanal('');
-              setFGrupo('');
               setFGriffe('');
               setFMaterialPai('');
               setFProcesso('');
               setFRefFornecedor('');
+              setFPedidoSap('');
+              setFPINum('');
             }}
           >
             Limpar filtros
@@ -450,8 +454,7 @@ export default function ListaCompras() {
               }}
             />
           )}
-        </CardContent>
-      </Card>
+      </PainelFiltros>
 
       <DataTable
         colunas={[
@@ -467,9 +470,9 @@ export default function ListaCompras() {
                     size="icon"
                     className="h-6 w-6 text-destructive"
                     title="Excluir (lógico)"
-                    onClick={(e) => {
+                    onClick={async (e) => {
                       e.stopPropagation();
-                      if (confirm(`O registro ${row.cd_compra} será marcado como EXCLUIDO. Continuar?`)) {
+                      if (await confirmar({ titulo: 'Excluir registro', mensagem: `O registro ${row.cd_compra} será marcado como EXCLUIDO. Continuar?`, variante: 'destructive', textoConfirmar: 'Excluir' })) {
                         excluir.mutate(row.cd_compra);
                       }
                     }}
@@ -661,13 +664,27 @@ export default function ListaCompras() {
               </label>
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => { setVisibleCols(null); setColsModalOpen(false); }}>Cancelar</Button>
-            <Button onClick={() => {
-              const key = `lista_compras_cols_${usuario?.id ?? 'anon'}`;
-              if (visibleCols) localStorage.setItem(key, JSON.stringify(visibleCols));
-              setColsModalOpen(false);
-            }}>Salvar</Button>
+          <DialogFooter className="sm:justify-between">
+            <Button
+              variant="secondary"
+              onClick={() => {
+                // volta para o padrão do SysPlan (colunas marcadas como exibir)
+                const padrao = (configCols ?? []).map((c) => campoParaColuna(c.campo));
+                setVisibleCols(padrao);
+                const key = `lista_compras_cols_${usuario?.id ?? 'anon'}`;
+                localStorage.removeItem(key);
+              }}
+            >
+              <RefreshCw /> Restaurar padrão
+            </Button>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => { setVisibleCols(null); setColsModalOpen(false); }}>Cancelar</Button>
+              <Button onClick={() => {
+                const key = `lista_compras_cols_${usuario?.id ?? 'anon'}`;
+                if (visibleCols) localStorage.setItem(key, JSON.stringify(visibleCols));
+                setColsModalOpen(false);
+              }}>Salvar</Button>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>

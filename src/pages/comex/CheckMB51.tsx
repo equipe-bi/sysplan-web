@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 import { DataTable, type Coluna } from '@/components/DataTable';
 import { Button } from '@/components/ui/button';
+import { confirmar } from '@/components/ui/confirm';
 import { Input, Label, Select } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -174,9 +175,9 @@ export function CheckMB51({ editavel }: { editavel: boolean }) {
                 </Button>
                 <Button
                   variant="ghost" size="sm" className="h-6 px-2 text-xs text-destructive"
-                  onClick={(e) => {
+                  onClick={async (e) => {
                     e.stopPropagation();
-                    if (confirm(`O registro ${r.cd_compra} será marcado como EXCLUIDO (não é apagado da tabela). Continuar?`)) excluir.mutate(r);
+                    if (await confirmar({ titulo: 'Excluir registro', mensagem: `O registro ${r.cd_compra} será marcado como EXCLUIDO (não é apagado da tabela). Continuar?`, variante: 'destructive', textoConfirmar: 'Excluir' })) excluir.mutate(r);
                   }}
                 >
                   <Trash2 className="h-3 w-3" /> Excluir

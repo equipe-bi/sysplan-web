@@ -9,6 +9,7 @@ import { parsePI, extrairFotoPI, traduzCoresPI, type DadosPI } from '@/lib/pi-pa
 import { salvarFotoProduto } from '@/lib/cloudinary';
 import { validaCompra } from '@/lib/regras';
 import { Button } from '@/components/ui/button';
+import { confirmar } from '@/components/ui/confirm';
 import { Input, Label, Select, Textarea } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/misc';
@@ -177,7 +178,7 @@ export default function CadastroPI() {
       toast.error(erros[0]);
       return;
     }
-    if (!confirm('Deseja salvar?')) return;
+    if (!(await confirmar({ titulo: 'Salvar', mensagem: 'Deseja salvar?', textoConfirmar: 'Salvar' }))) return;
     setSalvando(true);
     try {
       const payload: Record<string, any> = { ...compra };

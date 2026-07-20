@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase';
 import { buscarFotoProduto, salvarFotoProduto } from '@/lib/cloudinary';
 import { comprimirImagem, salvarCopiaLocal } from '@/lib/imagem';
 import { Button } from '@/components/ui/button';
+import { confirmar } from '@/components/ui/confirm';
 import { cn } from '@/lib/utils';
 
 /**
@@ -68,36 +69,52 @@ export function FotoInline({
   refFornecedor,
   altura = 160,
   permitirUpload = false,
+  deferir = false,
+  onPendenteChange,
 }: {
   refFornecedor: string | null;
   altura?: number;
   permitirUpload?: boolean;
+  /** Quando true, selecionar a foto apenas a "prepara" — o envio ao Cloudinary
+   *  ocorre quando o formulário-pai salvar (via commitFotoPendente). */
+  deferir?: boolean;
+  /** Notifica o pai do arquivo pendente (ou null quando limpo) */
+  onPendenteChange?: (file: File | null) => void;
 }) {
   const { data: url } = useFotoProduto(refFornecedor);
   const qc = useQueryClient();
   const fileRef = useRef<HTMLInputElement>(null);
   const [enviando, setEnviando] = useState(false);
   const [excluindo, setExcluindo] = useState(false);
+  const [pendente, setPendente] = useState<File | null>(null);
+  const [previewPendente, setPreviewPendente] = useState<string | null>(null);
 
-  const temFoto = !!url;
+  const temFoto = !!url || !!previewPendente;
 
-  const enviar = async (file: File) => {
+  // limpa a foto pendente quando a referência muda (troca de linha) e libera o objectURL
+  useEffect(() => {
+    setPendente(null);
+    setPreviewPendente((p) => {
+      if (p) URL.revokeObjectURL(p);
+      return null;
+    });
+    onPendenteChange?.(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refFornecedor]);
+
+  // envio imediato (modo antigo, usado quando deferir=false)
+  const enviarImediato = async (file: File) => {
     if (!refFornecedor) {
       toast.error('Informe a Ref. Fornecedor antes de enviar a foto.');
       return;
     }
     setEnviando(true);
     try {
-      // 1) comprime para no máximo 300 KB
       const comprimida = await comprimirImagem(file, 300 * 1024);
-      // 2) grava uma cópia local — pede a pasta ao usuário (não bloqueia o upload)
       const gravou = await salvarCopiaLocal(`${refFornecedor}.jpg`, comprimida).catch(() => false);
-      // 3) sobe a versão comprimida ao banco de imagens
       await salvarFotoProduto(refFornecedor, comprimida);
       const kb = Math.round(comprimida.size / 1024);
-      toast.success(
-        `Foto salva (${kb} KB) no banco de imagens${gravou ? ' e cópia local gravada' : ''}.`,
-      );
+      toast.success(`Foto salva (${kb} KB) no banco de imagens${gravou ? ' e cópia local gravada' : ''}.`);
       qc.invalidateQueries({ queryKey: ['foto_produto', refFornecedor] });
     } catch (e: any) {
       toast.error(e.message ?? String(e));
@@ -106,14 +123,41 @@ export function FotoInline({
     }
   };
 
+  const selecionar = (file: File) => {
+    if (!refFornecedor) {
+      toast.error('Informe a Ref. Fornecedor antes de escolher a foto.');
+      return;
+    }
+    if (deferir) {
+      // apenas prepara: mostra preview e avisa o pai (envio ocorre ao salvar)
+      setPreviewPendente((p) => {
+        if (p) URL.revokeObjectURL(p);
+        return URL.createObjectURL(file);
+      });
+      setPendente(file);
+      onPendenteChange?.(file);
+    } else {
+      enviarImediato(file);
+    }
+  };
+
   const excluir = async () => {
+    // se há uma foto apenas preparada, cancela a preparação
+    if (pendente) {
+      setPendente(null);
+      setPreviewPendente((p) => {
+        if (p) URL.revokeObjectURL(p);
+        return null;
+      });
+      onPendenteChange?.(null);
+      return;
+    }
     if (!refFornecedor) return;
-    if (!confirm('Excluir a foto deste produto?')) return;
+    if (!(await confirmar({ titulo: 'Excluir foto', mensagem: 'Excluir a foto deste produto?', variante: 'destructive', textoConfirmar: 'Excluir' }))) return;
     setExcluindo(true);
     try {
       const { error } = await supabase.from('fotos_produto').delete().eq('cd_ref_fornecedor', refFornecedor);
       if (error) throw error;
-      // remove também eventual foto legada do bucket (ignora falha)
       await supabase.storage.from('fotos-produto').remove([`${refFornecedor}.jpg`]).catch(() => {});
       toast.success('Foto excluída.');
       qc.invalidateQueries({ queryKey: ['foto_produto', refFornecedor] });
@@ -126,7 +170,10 @@ export function FotoInline({
 
   return (
     <div className="space-y-1">
-      <Imagem url={url} refFornecedor={refFornecedor ?? ''} altura={altura} />
+      <Imagem url={previewPendente ?? url} refFornecedor={refFornecedor ?? ''} altura={altura} />
+      {pendente && (
+        <p className="text-center text-[10px] font-medium text-primary">Foto será enviada ao salvar</p>
+      )}
       {permitirUpload && (
         <div className="flex gap-1">
           <Button
@@ -146,7 +193,7 @@ export function FotoInline({
               className="h-6 text-xs text-destructive"
               loading={excluindo}
               onClick={excluir}
-              title="Excluir foto"
+              title={pendente ? 'Cancelar foto' : 'Excluir foto'}
             >
               <Trash2 className="h-3 w-3" />
             </Button>
@@ -158,7 +205,7 @@ export function FotoInline({
             className="hidden"
             onChange={(e) => {
               const f = e.target.files?.[0];
-              if (f) enviar(f);
+              if (f) selecionar(f);
               e.target.value = '';
             }}
           />

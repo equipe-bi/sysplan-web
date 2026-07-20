@@ -7,6 +7,7 @@ import { useAuth } from '@/context/AuthContext';
 import { GRUPO_GERAL, useCombos, useGrupos } from '@/services/combos';
 import { defineTamanhoProduto } from '@/lib/regras';
 import { Button } from '@/components/ui/button';
+import { confirmar } from '@/components/ui/confirm';
 import { Input, Select, Textarea } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import type { Compra } from '@/types';
@@ -216,8 +217,8 @@ export function CadastroMassa({ onFechar }: { onFechar: (criou: boolean) => void
           <Button variant="outline" onClick={() => onFechar(false)}>Cancelar</Button>
           <Button
             loading={criar.isPending}
-            onClick={() => {
-              if (confirm(`Criar ${qtdLinhas} nova(s) linha(s) na carteira?`)) criar.mutate();
+            onClick={async () => {
+              if (await confirmar({ titulo: 'Cadastro em massa', mensagem: `Criar ${qtdLinhas} nova(s) linha(s) na carteira?`, textoConfirmar: 'Criar' })) criar.mutate();
             }}
           >
             <Layers /> Criar {qtdLinhas} linha(s)

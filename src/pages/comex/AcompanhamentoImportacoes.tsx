@@ -6,6 +6,7 @@ import { supabase, fetchAll } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 import { DataTable, type Coluna } from '@/components/DataTable';
 import { Button } from '@/components/ui/button';
+import { confirmar } from '@/components/ui/confirm';
 import { Input, Label, Select, Textarea } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -242,8 +243,8 @@ export default function AcompanhamentoImportacoes() {
                 />
               </div>
             </div>
-            <Button size="sm" loading={aplicarMassa.isPending} onClick={() => {
-              if (confirm(`Aplicar "${defMassa.label}" em ${selecionadas.size} linha(s)?`)) aplicarMassa.mutate();
+            <Button size="sm" loading={aplicarMassa.isPending} onClick={async () => {
+              if (await confirmar({ titulo: 'Aplicar em massa', mensagem: `Aplicar "${defMassa.label}" em ${selecionadas.size} linha(s)?`, textoConfirmar: 'Aplicar' })) aplicarMassa.mutate();
             }}>
               Aplicar
             </Button>

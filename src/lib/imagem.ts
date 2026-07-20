@@ -54,27 +54,43 @@ export async function comprimirImagem(arquivo: File | Blob, maxBytes = LIMITE_PA
   return blob;
 }
 
+export function suportaSeletorPasta(): boolean {
+  return typeof (window as any).showDirectoryPicker === 'function';
+}
+
 /**
- * Salva uma cópia local do blob. Em navegadores compatíveis (Chrome/Edge) abre o
- * seletor de pasta da máquina; caso contrário, dispara um download comum.
- * Retorna `true` se gravou, `false` se o usuário cancelou.
+ * Abre o explorer para o usuário escolher a pasta onde a cópia será salva.
+ * DEVE ser chamado dentro do gesto do usuário (clique), antes de qualquer await
+ * longo, senão o navegador bloqueia a abertura do seletor.
+ * Retorna o handle da pasta, ou null se o usuário cancelou ou o navegador não suporta.
  */
-export async function salvarCopiaLocal(nomeArquivo: string, blob: Blob): Promise<boolean> {
+export async function pedirPastaLocal(): Promise<any | null> {
   const w = window as any;
-  if (typeof w.showDirectoryPicker === 'function') {
+  if (typeof w.showDirectoryPicker !== 'function') return null;
+  try {
+    return await w.showDirectoryPicker({ id: 'sysplan-fotos', mode: 'readwrite' });
+  } catch (e: any) {
+    if (e?.name === 'AbortError') return null; // usuário fechou o seletor
+    return null;
+  }
+}
+
+/**
+ * Grava o blob na pasta escolhida (`dirHandle`). Se não houver pasta (navegador
+ * sem suporte ou usuário cancelou), dispara um download comum como fallback.
+ */
+export async function gravarArquivoLocal(dirHandle: any | null, nomeArquivo: string, blob: Blob): Promise<boolean> {
+  if (dirHandle) {
     try {
-      const dir = await w.showDirectoryPicker({ id: 'sysplan-fotos', mode: 'readwrite' });
-      const handle = await dir.getFileHandle(nomeArquivo, { create: true });
+      const handle = await dirHandle.getFileHandle(nomeArquivo, { create: true });
       const writable = await handle.createWritable();
       await writable.write(blob);
       await writable.close();
       return true;
-    } catch (e: any) {
-      if (e?.name === 'AbortError') return false; // usuário fechou o seletor
-      // qualquer outra falha (permissão, navegador) cai no fallback abaixo
+    } catch {
+      // cai no fallback
     }
   }
-  // Fallback: download comum
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
@@ -84,4 +100,13 @@ export async function salvarCopiaLocal(nomeArquivo: string, blob: Blob): Promise
   a.remove();
   URL.revokeObjectURL(url);
   return true;
+}
+
+/**
+ * Salva uma cópia local do blob em uma única chamada (pede a pasta e grava).
+ * Use quando a chamada já ocorre dentro do gesto do usuário.
+ */
+export async function salvarCopiaLocal(nomeArquivo: string, blob: Blob): Promise<boolean> {
+  const dir = await pedirPastaLocal();
+  return gravarArquivoLocal(dir, nomeArquivo, blob);
 }

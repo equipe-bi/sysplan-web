@@ -6,8 +6,9 @@ import { supabase, fetchAll } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 import { DataTable, type Coluna } from '@/components/DataTable';
 import { Button } from '@/components/ui/button';
+import { confirmar } from '@/components/ui/confirm';
 import { Input, Label } from '@/components/ui/input';
-import { Card, CardContent } from '@/components/ui/card';
+import { PainelFiltros } from '@/components/ui/painel-filtros';
 import { Badge } from '@/components/ui/misc';
 import { exportarExcel } from '@/lib/exportar';
 import { formatDate, formatNumber, anoMes, cn } from '@/lib/utils';
@@ -208,8 +209,7 @@ export default function LancarAcompanhamento() {
         </p>
       </div>
 
-      <Card>
-        <CardContent className="flex flex-wrap items-end gap-3 p-3">
+      <PainelFiltros titulo="Filtros e ações">
           <div className="w-40">
             <Label>AnoMês (Revised Delivery)</Label>
             <Input
@@ -235,8 +235,7 @@ export default function LancarAcompanhamento() {
               </Button>
             </>
           )}
-        </CardContent>
-      </Card>
+      </PainelFiltros>
 
       {buscado && (
         <>
@@ -250,8 +249,8 @@ export default function LancarAcompanhamento() {
                 className="ml-auto self-center"
                 size="lg"
                 loading={lancar.isPending}
-                onClick={() => {
-                  if (confirm(`Lançar ${aLancar.length} registro(s) "A lançar" do AnoMês ${anoMesBusca}?`)) lancar.mutate();
+                onClick={async () => {
+                  if (await confirmar({ titulo: 'Lançar no Acompanhamento', mensagem: `Lançar ${aLancar.length} registro(s) "A lançar" do AnoMês ${anoMesBusca}?`, textoConfirmar: 'Lançar' })) lancar.mutate();
                 }}
               >
                 <Ship /> Lançar {aLancar.length} registro(s)

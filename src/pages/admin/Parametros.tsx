@@ -6,6 +6,7 @@ import { supabase, fetchAll } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 import { DataTable, type Coluna } from '@/components/DataTable';
 import { Button } from '@/components/ui/button';
+import { confirmar } from '@/components/ui/confirm';
 import { Input, Label } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -217,7 +218,7 @@ function CrudTabela({ def }: { def: TabelaDef }) {
           <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => { e.stopPropagation(); setNovoRegistro(false); setEdicao({ ...row }); }}>
             <Pencil className="h-3.5 w-3.5" />
           </Button>
-          <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={(e) => { e.stopPropagation(); if (confirm('Excluir registro?')) excluir.mutate(row); }}>
+          <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={async (e) => { e.stopPropagation(); if (await confirmar({ titulo: 'Excluir registro', mensagem: 'Excluir registro?', variante: 'destructive', textoConfirmar: 'Excluir' })) excluir.mutate(row); }}>
             <Trash2 className="h-3.5 w-3.5" />
           </Button>
         </div>

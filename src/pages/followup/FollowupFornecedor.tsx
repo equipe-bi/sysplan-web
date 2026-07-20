@@ -8,9 +8,10 @@ import { useAuth } from '@/context/AuthContext';
 import { useCombos, useCompradores } from '@/services/combos';
 import { DataTable, type Coluna } from '@/components/DataTable';
 import { Button } from '@/components/ui/button';
-import { Input, Label, Select } from '@/components/ui/input';
+import { Label, Select } from '@/components/ui/input';
 import { SearchInput } from '@/components/ui/search-input';
-import { Card, CardContent } from '@/components/ui/card';
+import { PainelFiltros } from '@/components/ui/painel-filtros';
+import { confirmar } from '@/components/ui/confirm';
 import { formatDate } from '@/lib/utils';
 import { baixarBlob, gerarArquivoFollowup, type LinhaFollowExport } from '@/lib/followup-excel';
 import { prepararExportacaoFollow } from '@/lib/followup-regra';
@@ -82,17 +83,26 @@ export default function FollowupFornecedor() {
         });
       }
 
-      // Busca as compras dos follows em blocos e junta client-side
+      // Busca as compras dos follows em blocos (em paralelo) e junta client-side
       const cds = [...new Set(rows.map((r) => r.cd_compra).filter((c) => c > 0))];
       const comprasPorCd = new Map<number, any>();
-      for (let i = 0; i < cds.length; i += 300) {
-        const { data: bloco, error } = await supabase
-          .from('controle_compras')
-          .select('cd_compra, dc_fornecedor, dc_grupo, dc_canal, dc_linha, dc_griffe, cd_pedido_fornecedor, cd_material_fornecedor, cd_pedido_sap, cd_material_pai, dc_status')
-          .in('cd_compra', cds.slice(i, i + 300))
-          .limit(1000);
-        if (error) throw error;
-        for (const c of bloco ?? []) comprasPorCd.set(c.cd_compra, c);
+      const blocosCds: number[][] = [];
+      for (let i = 0; i < cds.length; i += 300) blocosCds.push(cds.slice(i, i + 300));
+      for (let i = 0; i < blocosCds.length; i += 6) {
+        const lote = blocosCds.slice(i, i + 6);
+        const resultados = await Promise.all(
+          lote.map((ids) =>
+            supabase
+              .from('controle_compras')
+              .select('cd_compra, dc_fornecedor, dc_grupo, dc_canal, dc_linha, dc_griffe, cd_pedido_fornecedor, cd_material_fornecedor, cd_pedido_sap, cd_material_pai, dc_status')
+              .in('cd_compra', ids)
+              .limit(1000),
+          ),
+        );
+        for (const { data: bloco, error } of resultados) {
+          if (error) throw error;
+          for (const c of bloco ?? []) comprasPorCd.set(c.cd_compra, c);
+        }
       }
 
       rows = rows
@@ -461,6 +471,13 @@ export default function FollowupFornecedor() {
       });
       return;
     }
+    // Confirmação com a quantidade de linhas que serão aplicadas
+    const ok = await confirmar({
+      titulo: 'Confirmar importação',
+      mensagem: `${validas.length.toLocaleString('pt-BR')} resposta(s) de follow-up serão aplicadas (e as compras correspondentes atualizadas).\n\nDeseja executar a importação?`,
+      textoConfirmar: 'Executar importação',
+    });
+    if (!ok) return;
     let aplicadas = 0;
     let comprasAlteradas = 0;
     for (const l of validas) {
@@ -599,8 +616,7 @@ export default function FollowupFornecedor() {
         </div>
       </div>
 
-      <Card>
-        <CardContent className="flex flex-wrap items-end gap-3 p-3">
+      <PainelFiltros>
           <div className="w-56">
             <Label>Situação</Label>
             <Select value={status} onChange={(e) => setStatus(e.target.value as StatusFiltro)}>
@@ -629,8 +645,7 @@ export default function FollowupFornecedor() {
             <Label>Material Pai</Label>
             <SearchInput value={materialPai} onChange={(e) => setMaterialPai(e.target.value)} onClear={() => setMaterialPai('')} />
           </div>
-        </CardContent>
-      </Card>
+      </PainelFiltros>
 
       <DataTable
         colunas={colunas}
