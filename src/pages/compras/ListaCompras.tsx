@@ -497,9 +497,9 @@ export default function ListaCompras() {
         selecionadas={selecionadas}
         onRowClick={(row, e, visiveis) => {
           setSelecionadas((s) => {
-            const n = new Set(s);
             // Shift+clique: seleciona o intervalo entre o último clique e a linha atual
             if (e.shiftKey && ultimoClicado.current != null) {
+              const n = new Set(s);
               const i1 = visiveis.findIndex((v) => v.cd_compra === ultimoClicado.current);
               const i2 = visiveis.findIndex((v) => v.cd_compra === row.cd_compra);
               if (i1 >= 0 && i2 >= 0) {
@@ -509,10 +509,18 @@ export default function ListaCompras() {
                 return n;
               }
             }
-            if (n.has(row.cd_compra)) n.delete(row.cd_compra);
-            else n.add(row.cd_compra);
+            // Ctrl+clique (Cmd no Mac): adiciona/remove da seleção múltipla
+            if (e.ctrlKey || e.metaKey) {
+              const n = new Set(s);
+              if (n.has(row.cd_compra)) n.delete(row.cd_compra);
+              else n.add(row.cd_compra);
+              ultimoClicado.current = row.cd_compra;
+              return n;
+            }
+            // Clique simples: marca só esta linha (sem Ctrl não acumula seleção
+            // e portanto não abre a edição em massa); clicar de novo desmarca
             ultimoClicado.current = row.cd_compra;
-            return n;
+            return s.size === 1 && s.has(row.cd_compra) ? new Set<number>() : new Set([row.cd_compra]);
           });
         }}
         onRowDoubleClick={abrirEdicao}

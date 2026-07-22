@@ -264,8 +264,9 @@ export default function AcompanhamentoImportacoes() {
         autofiltro
         onRowClick={(row, e, visiveis) => {
           setSelecionadas((s) => {
-            const n = new Set(s);
+            // Shift+clique: intervalo
             if (e.shiftKey && ultimoClicado.current != null) {
+              const n = new Set(s);
               const i1 = visiveis.findIndex((v) => v.id === ultimoClicado.current);
               const i2 = visiveis.findIndex((v) => v.id === row.id);
               if (i1 >= 0 && i2 >= 0) {
@@ -273,10 +274,17 @@ export default function AcompanhamentoImportacoes() {
                 return n;
               }
             }
-            if (n.has(row.id)) n.delete(row.id);
-            else n.add(row.id);
+            // Ctrl+clique (Cmd no Mac): adiciona/remove da seleção múltipla
+            if (e.ctrlKey || e.metaKey) {
+              const n = new Set(s);
+              if (n.has(row.id)) n.delete(row.id);
+              else n.add(row.id);
+              ultimoClicado.current = row.id;
+              return n;
+            }
+            // Clique simples: marca só esta linha (sem Ctrl não abre edição em massa)
             ultimoClicado.current = row.id;
-            return n;
+            return s.size === 1 && s.has(row.id) ? new Set<number>() : new Set([row.id]);
           });
         }}
         onRowDoubleClick={(r) => editavel && setEdicao({ ...r })}
